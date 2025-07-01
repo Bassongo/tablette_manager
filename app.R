@@ -2,10 +2,13 @@
 library(shiny)
 library(DT)
 library(readxl)
+library(shinyjs)
 
 # Interface utilisateur principale
-ui <- navbarPage(
-  "Gestion des Tablettes",
+ui <- tagList(
+  useShinyjs(),
+  navbarPage(
+    "Gestion des Tablettes",
   # Onglet d'affectation des tablettes aux agents
   tabPanel(
     "Affectation des tablettes",
@@ -117,6 +120,7 @@ ui <- navbarPage(
     )
   )
 )
+)
 
 server <- function(input, output, session) {
   # Liste des tablettes enregistr\u00e9es
@@ -191,14 +195,15 @@ server <- function(input, output, session) {
   # Enregistrement en masse des tablettes via fichier Excel
   observeEvent(input$register_mass_btn, {
     req(input$tablets_register_file)
-    tablets <- read_excel(input$tablets_register_file$datapath)
+    tablets <- read_excel(input$tablets_register_file$datapath, col_types = "text")
     if (!"etat" %in% names(tablets)) {
       tablets$etat <- "en stock"
     }
     if ("powerbank" %in% names(tablets)) {
-      tablets$powerbank <- ifelse(tablets$powerbank, "Oui", "Non")
+      tablets$powerbank <- ifelse(tablets$powerbank %in% c("TRUE", "1", "Oui", "yes", "YES", "oui"), "Oui", "Non")
     }
     registered(rbind(registered(), tablets))
+    shinyjs::reset("tablets_register_file")
   })
 
   output$register_table <- renderDT(registered())
@@ -261,8 +266,8 @@ server <- function(input, output, session) {
 
   observeEvent(input$mass_assign_btn, {
     req(input$agents_file, input$tablets_file)
-    agents <- read_excel(input$agents_file$datapath)
-    tablets <- read_excel(input$tablets_file$datapath)
+    agents <- read_excel(input$agents_file$datapath, col_types = "text")
+    tablets <- read_excel(input$tablets_file$datapath, col_types = "text")
 
     # V\u00e9rifie que toutes les tablettes du fichier sont enregistr\u00e9es
     not_registered <- setdiff(tablets$tablette, registered()$tablette)
@@ -281,9 +286,15 @@ server <- function(input, output, session) {
       result$powerbank <- ifelse(result$powerbank, "Oui", "Non")
     }
     mass_assignments(result)
+    if (!"date" %in% names(result)) {
+      result$date <- as.character(Sys.Date())
+    }
+    assignments(rbind(assignments(), result[, names(assignments()), drop = FALSE]))
     current <- registered()
     current$etat[current$tablette %in% result$tablette] <- "affect\u00e9"
     registered(current)
+    shinyjs::reset("agents_file")
+    shinyjs::reset("tablets_file")
   })
 
   output$mass_assign_table <- renderDT(mass_assignments())
