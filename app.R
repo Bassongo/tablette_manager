@@ -1,9 +1,12 @@
+# Application Shiny de gestion des tablettes
 library(shiny)
 library(DT)
 library(readxl)
 
+# Interface utilisateur principale
 ui <- navbarPage(
   "Gestion des Tablettes",
+  # Onglet d'affectation des tablettes aux agents
   tabPanel(
     "Affectation des tablettes",
     tabsetPanel(
@@ -39,6 +42,39 @@ ui <- navbarPage(
       )
     )
   ),
+  # Onglet d'enregistrement des nouvelles tablettes
+  tabPanel(
+    "Enregistrement des tablettes",
+    tabsetPanel(
+      tabPanel(
+        "Enregistrement individuel",
+        sidebarLayout(
+          sidebarPanel(
+            textInput("reg_tab_num", "Num\u00e9ro de la tablette"),
+            textInput("reg_charger_num", "Num\u00e9ro de chargeur"),
+            checkboxInput("reg_has_powerbank", "Powerbank pr\u00e9sent"),
+            actionButton("register_btn", "Enregistrer")
+          ),
+          mainPanel(DTOutput("register_table"))
+        )
+      ),
+      tabPanel(
+        "Enregistrement en masse",
+        sidebarLayout(
+          sidebarPanel(
+            fileInput(
+              "tablets_register_file",
+              "Liste des tablettes (Excel)",
+              accept = c(".xlsx", ".xls")
+            ),
+            actionButton("register_mass_btn", "Enregistrer en masse")
+          ),
+          mainPanel(DTOutput("register_table"))
+        )
+      )
+    )
+  ),
+  # Onglet pour enregistrer le retour d'une tablette
   tabPanel(
     "Retour de tablette",
     sidebarLayout(
@@ -50,6 +86,7 @@ ui <- navbarPage(
       mainPanel(DTOutput("return_table"))
     )
   ),
+  # Onglet de d\u00e9claration d'incident sur une tablette
   tabPanel(
     "D\u00e9claration d'incident",
     sidebarLayout(
@@ -63,6 +100,7 @@ ui <- navbarPage(
       mainPanel(DTOutput("incident_table"))
     )
   ),
+  # Tableau de bord r\u00e9capitulatif
   tabPanel(
     "Suivi des tablettes",
     fluidPage(
@@ -77,12 +115,44 @@ ui <- navbarPage(
 )
 
 server <- function(input, output, session) {
+  # Liste des tablettes enregistr\u00e9es
+  registered <- reactiveVal(data.frame())
+  # Table des affectations individuelles
   assignments <- reactiveVal(data.frame())
+  # Table des affectations en masse
   mass_assignments <- reactiveVal(data.frame())
+  # Table des retours de tablettes
   returns <- reactiveVal(data.frame())
+  # Table des incidents d\u00e9clar\u00e9s
   incidents <- reactiveVal(data.frame())
 
+  # Enregistrement manuel d'une tablette
+  observeEvent(input$register_btn, {
+    new_entry <- data.frame(
+      tablette = input$reg_tab_num,
+      chargeur = input$reg_charger_num,
+      powerbank = input$reg_has_powerbank,
+      stringsAsFactors = FALSE
+    )
+    registered(rbind(registered(), new_entry))
+  })
+
+  # Enregistrement en masse des tablettes via fichier Excel
+  observeEvent(input$register_mass_btn, {
+    req(input$tablets_register_file)
+    tablets <- read_excel(input$tablets_register_file$datapath)
+    registered(rbind(registered(), tablets))
+  })
+
+  output$register_table <- renderDT(registered())
+
   observeEvent(input$assign_btn, {
+    # V\u00e9rifie que la tablette est enregistr\u00e9e avant l'affectation
+    if (!(input$tab_num %in% registered()$tablette)) {
+      showNotification("Tablette non enregistr\u00e9e", type = "error")
+      return()
+    }
+
     new_entry <- data.frame(
       tablette = input$tab_num,
       chargeur = input$charger_num,
@@ -105,6 +175,17 @@ server <- function(input, output, session) {
     req(input$agents_file, input$tablets_file)
     agents <- read_excel(input$agents_file$datapath)
     tablets <- read_excel(input$tablets_file$datapath)
+
+    # V\u00e9rifie que toutes les tablettes du fichier sont enregistr\u00e9es
+    not_registered <- setdiff(tablets$tablette, registered()$tablette)
+    if (length(not_registered) > 0) {
+      showNotification(
+        "Certaines tablettes ne sont pas enregistr\u00e9es",
+        type = "error"
+      )
+      return()
+    }
+
     n <- min(nrow(agents), nrow(tablets))
     shuffled <- sample(n)
     result <- cbind(agents[seq_len(n), ], tablets[shuffled, ])
