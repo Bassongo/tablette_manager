@@ -121,6 +121,7 @@ server <- function(input, output, session) {
       tablette = character(),
       chargeur = character(),
       powerbank = logical(),
+      etat = character(),
       stringsAsFactors = FALSE
     )
   )
@@ -169,6 +170,7 @@ server <- function(input, output, session) {
       tablette = input$reg_tab_num,
       chargeur = input$reg_charger_num,
       powerbank = input$reg_has_powerbank,
+      etat = "en stock",
       stringsAsFactors = FALSE
     )
     registered(rbind(registered(), new_entry))
@@ -178,6 +180,9 @@ server <- function(input, output, session) {
   observeEvent(input$register_mass_btn, {
     req(input$tablets_register_file)
     tablets <- read_excel(input$tablets_register_file$datapath)
+    if (!"etat" %in% names(tablets)) {
+      tablets$etat <- "en stock"
+    }
     registered(rbind(registered(), tablets))
   })
 
@@ -204,6 +209,9 @@ server <- function(input, output, session) {
       stringsAsFactors = FALSE
     )
     assignments(rbind(assignments(), new_entry))
+    current <- registered()
+    current$etat[current$tablette == input$tab_num] <- "affect\u00e9"
+    registered(current)
   })
 
   output$assign_table <- renderDT(assignments())
@@ -227,11 +235,19 @@ server <- function(input, output, session) {
     shuffled <- sample(n)
     result <- cbind(agents[seq_len(n), ], tablets[shuffled, ])
     mass_assignments(result)
+    current <- registered()
+    current$etat[current$tablette %in% result$tablette] <- "affect\u00e9"
+    registered(current)
   })
 
   output$mass_assign_table <- renderDT(mass_assignments())
 
   observeEvent(input$return_btn, {
+    if (!(input$return_tab_num %in% registered()$tablette)) {
+      showNotification("Tablette non enregistr\u00e9e", type = "error")
+      return()
+    }
+
     new_entry <- data.frame(
       tablette = input$return_tab_num,
       agent = input$return_agent,
@@ -239,11 +255,19 @@ server <- function(input, output, session) {
       stringsAsFactors = FALSE
     )
     returns(rbind(returns(), new_entry))
+    current <- registered()
+    current$etat[current$tablette == input$return_tab_num] <- "en stock"
+    registered(current)
   })
 
   output$return_table <- renderDT(returns())
 
   observeEvent(input$incident_btn, {
+    if (!(input$incident_tab %in% registered()$tablette)) {
+      showNotification("Tablette non enregistr\u00e9e", type = "error")
+      return()
+    }
+
     new_entry <- data.frame(
       tablette = input$incident_tab,
       type = input$incident_type,
@@ -253,25 +277,27 @@ server <- function(input, output, session) {
       stringsAsFactors = FALSE
     )
     incidents(rbind(incidents(), new_entry))
+    current <- registered()
+    current$etat[current$tablette == input$incident_tab] <- "endommag\u00e9"
+    registered(current)
   })
 
   output$incident_table <- renderDT(incidents())
 
   output$stock_txt <- renderText({
-    total <- nrow(assignments()) + nrow(incidents()) + nrow(returns())
-    stock <- total - nrow(assignments())
+    stock <- sum(registered()$etat == "en stock")
     paste("Stock disponible:", stock)
   })
 
   output$assigned_txt <- renderText({
-    paste("Tablettes affect\u00e9es:", nrow(assignments()))
+    paste("Tablettes affect\u00e9es:", sum(registered()$etat == "affect\u00e9"))
   })
 
   output$incident_txt <- renderText({
-    paste("Incidents d\u00e9clar\u00e9s:", nrow(incidents()))
+    paste("Incidents d\u00e9clar\u00e9s:", sum(registered()$etat == "endommag\u00e9"))
   })
 
-  output$dashboard_table <- renderDT(assignments())
+  output$dashboard_table <- renderDT(registered())
 }
 
 shinyApp(ui, server)
