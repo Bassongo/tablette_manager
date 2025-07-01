@@ -9,7 +9,7 @@ Fonctionnalit\u00e9s principales :
 
 ## Lancer l'application
 
-Assurez-vous d'avoir R et les packages `shiny`, `DT` et `readxl` install\u00e9s, puis ex\u00e9cutez :
+Assurez-vous d'avoir R et les packages `shiny`, `DT`, `readxl` et `shinyjs` install\u00e9s, puis ex\u00e9cutez :
 
 ```R
 shiny::runApp('app.R')
