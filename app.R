@@ -116,15 +116,52 @@ ui <- navbarPage(
 
 server <- function(input, output, session) {
   # Liste des tablettes enregistr\u00e9es
-  registered <- reactiveVal(data.frame())
+  registered <- reactiveVal(
+    data.frame(
+      tablette = character(),
+      chargeur = character(),
+      powerbank = logical(),
+      stringsAsFactors = FALSE
+    )
+  )
   # Table des affectations individuelles
-  assignments <- reactiveVal(data.frame())
+  assignments <- reactiveVal(
+    data.frame(
+      tablette = character(),
+      chargeur = character(),
+      powerbank = logical(),
+      groupe = character(),
+      agent = character(),
+      classe = character(),
+      numero_agent = character(),
+      superviseur = character(),
+      numero_superviseur = character(),
+      date = character(),
+      stringsAsFactors = FALSE
+    )
+  )
   # Table des affectations en masse
   mass_assignments <- reactiveVal(data.frame())
   # Table des retours de tablettes
-  returns <- reactiveVal(data.frame())
+  returns <- reactiveVal(
+    data.frame(
+      tablette = character(),
+      agent = character(),
+      date_retour = character(),
+      stringsAsFactors = FALSE
+    )
+  )
   # Table des incidents d\u00e9clar\u00e9s
-  incidents <- reactiveVal(data.frame())
+  incidents <- reactiveVal(
+    data.frame(
+      tablette = character(),
+      type = character(),
+      commentaire = character(),
+      agent = character(),
+      date = character(),
+      stringsAsFactors = FALSE
+    )
+  )
 
   # Enregistrement manuel d'une tablette
   observeEvent(input$register_btn, {
