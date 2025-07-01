@@ -174,6 +174,10 @@ server <- function(input, output, session) {
       stringsAsFactors = FALSE
     )
     registered(rbind(registered(), new_entry))
+    showNotification("Tablette enregistr\u00e9e avec succ\u00e8s", type = "message")
+    updateTextInput(session, "reg_tab_num", value = "")
+    updateTextInput(session, "reg_charger_num", value = "")
+    updateCheckboxInput(session, "reg_has_powerbank", value = FALSE)
   })
 
   # Enregistrement en masse des tablettes via fichier Excel
@@ -212,6 +216,17 @@ server <- function(input, output, session) {
     current <- registered()
     current$etat[current$tablette == input$tab_num] <- "affect\u00e9"
     registered(current)
+    showNotification("Tablette affect\u00e9e avec succ\u00e8s", type = "message")
+    updateTextInput(session, "tab_num", value = "")
+    updateTextInput(session, "charger_num", value = "")
+    updateCheckboxInput(session, "has_powerbank", value = FALSE)
+    updateTextInput(session, "agent_group", value = "")
+    updateTextInput(session, "agent_name", value = "")
+    updateTextInput(session, "agent_class", value = "")
+    updateTextInput(session, "agent_num", value = "")
+    updateTextInput(session, "supervisor_name", value = "")
+    updateTextInput(session, "supervisor_num", value = "")
+    updateDateInput(session, "assign_date", value = NA)
   })
 
   output$assign_table <- renderDT(assignments())
@@ -248,6 +263,13 @@ server <- function(input, output, session) {
       return()
     }
 
+    current <- registered()
+    tab_row <- which(current$tablette == input$return_tab_num)
+    if (length(tab_row) == 0 || current$etat[tab_row] != "affect\u00e9") {
+      showNotification("Tablette non affect\u00e9e", type = "error")
+      return()
+    }
+
     new_entry <- data.frame(
       tablette = input$return_tab_num,
       agent = input$return_agent,
@@ -255,7 +277,6 @@ server <- function(input, output, session) {
       stringsAsFactors = FALSE
     )
     returns(rbind(returns(), new_entry))
-    current <- registered()
     current$etat[current$tablette == input$return_tab_num] <- "en stock"
     registered(current)
   })
