@@ -50,10 +50,10 @@ ui <- navbarPage(
         "Enregistrement individuel",
         sidebarLayout(
           sidebarPanel(
+            actionButton("register_btn", "Enregistrer"),
             textInput("reg_tab_num", "Num\u00e9ro de la tablette"),
             textInput("reg_charger_num", "Num\u00e9ro de chargeur"),
-            checkboxInput("reg_has_powerbank", "Powerbank pr\u00e9sent"),
-            actionButton("register_btn", "Enregistrer")
+            checkboxInput("reg_has_powerbank", "Powerbank pr\u00e9sent")
           ),
           mainPanel(DTOutput("register_table"))
         )
@@ -81,6 +81,8 @@ ui <- navbarPage(
       sidebarPanel(
         textInput("return_tab_num", "Num\u00e9ro de la tablette"),
         textInput("return_agent", "Nom de l'agent"),
+        textInput("return_charger", "Num\u00e9ro de chargeur"),
+        checkboxInput("return_powerbank", "Powerbank pr\u00e9sent"),
         actionButton("return_btn", "Confirmer le retour")
       ),
       mainPanel(DTOutput("return_table"))
@@ -95,6 +97,8 @@ ui <- navbarPage(
         selectInput("incident_type", "Type d'incident", choices = c("\u00e9cran cass\u00e9", "perte", "autre")),
         textAreaInput("incident_comment", "Commentaire"),
         textInput("incident_agent", "Nom de l'agent"),
+        checkboxInput("incident_charger_ok", "Chargeur fonctionnel", TRUE),
+        checkboxInput("incident_powerbank_ok", "Powerbank fonctionnel", TRUE),
         actionButton("incident_btn", "D\u00e9clarer")
       ),
       mainPanel(DTOutput("incident_table"))
@@ -120,7 +124,7 @@ server <- function(input, output, session) {
     data.frame(
       tablette = character(),
       chargeur = character(),
-      powerbank = logical(),
+      powerbank = character(),
       etat = character(),
       stringsAsFactors = FALSE
     )
@@ -130,7 +134,7 @@ server <- function(input, output, session) {
     data.frame(
       tablette = character(),
       chargeur = character(),
-      powerbank = logical(),
+      powerbank = character(),
       groupe = character(),
       agent = character(),
       classe = character(),
@@ -147,6 +151,8 @@ server <- function(input, output, session) {
   returns <- reactiveVal(
     data.frame(
       tablette = character(),
+      chargeur = character(),
+      powerbank = character(),
       agent = character(),
       date_retour = character(),
       stringsAsFactors = FALSE
@@ -159,6 +165,8 @@ server <- function(input, output, session) {
       type = character(),
       commentaire = character(),
       agent = character(),
+      chargeur_ok = character(),
+      powerbank_ok = character(),
       date = character(),
       stringsAsFactors = FALSE
     )
@@ -169,7 +177,7 @@ server <- function(input, output, session) {
     new_entry <- data.frame(
       tablette = input$reg_tab_num,
       chargeur = input$reg_charger_num,
-      powerbank = input$reg_has_powerbank,
+      powerbank = ifelse(input$reg_has_powerbank, "Oui", "Non"),
       etat = "en stock",
       stringsAsFactors = FALSE
     )
@@ -187,6 +195,9 @@ server <- function(input, output, session) {
     if (!"etat" %in% names(tablets)) {
       tablets$etat <- "en stock"
     }
+    if ("powerbank" %in% names(tablets)) {
+      tablets$powerbank <- ifelse(tablets$powerbank, "Oui", "Non")
+    }
     registered(rbind(registered(), tablets))
   })
 
@@ -199,12 +210,30 @@ server <- function(input, output, session) {
       return()
     }
 
+    current <- registered()
+    tab_row <- which(current$tablette == input$tab_num)
+    if (current$etat[tab_row] != "en stock") {
+      showNotification("Tablette non disponible", type = "error")
+      return()
+    }
+
+    if (current$chargeur[tab_row] != input$charger_num) {
+      showNotification("Num\u00e9ro de chargeur incorrect", type = "error")
+      return()
+    }
+
+    expected_pb <- current$powerbank[tab_row] == "Oui"
+    if (expected_pb != input$has_powerbank) {
+      showNotification("Powerbank non conforme", type = "error")
+      return()
+    }
+
     new_entry <- data.frame(
       tablette = input$tab_num,
       chargeur = input$charger_num,
-      powerbank = input$has_powerbank,
+      powerbank = ifelse(input$has_powerbank, "Oui", "Non"),
       groupe = input$agent_group,
-      agent = input$agent_name,
+      agent = trimws(input$agent_name),
       classe = input$agent_class,
       numero_agent = input$agent_num,
       superviseur = input$supervisor_name,
@@ -213,7 +242,6 @@ server <- function(input, output, session) {
       stringsAsFactors = FALSE
     )
     assignments(rbind(assignments(), new_entry))
-    current <- registered()
     current$etat[current$tablette == input$tab_num] <- "affect\u00e9"
     registered(current)
     showNotification("Tablette affect\u00e9e avec succ\u00e8s", type = "message")
@@ -226,7 +254,7 @@ server <- function(input, output, session) {
     updateTextInput(session, "agent_num", value = "")
     updateTextInput(session, "supervisor_name", value = "")
     updateTextInput(session, "supervisor_num", value = "")
-    updateDateInput(session, "assign_date", value = NA)
+    updateDateInput(session, "assign_date", value = Sys.Date())
   })
 
   output$assign_table <- renderDT(assignments())
@@ -249,6 +277,9 @@ server <- function(input, output, session) {
     n <- min(nrow(agents), nrow(tablets))
     shuffled <- sample(n)
     result <- cbind(agents[seq_len(n), ], tablets[shuffled, ])
+    if ("powerbank" %in% names(result)) {
+      result$powerbank <- ifelse(result$powerbank, "Oui", "Non")
+    }
     mass_assignments(result)
     current <- registered()
     current$etat[current$tablette %in% result$tablette] <- "affect\u00e9"
@@ -270,15 +301,32 @@ server <- function(input, output, session) {
       return()
     }
 
+    assign_row <- assignments()[assignments()$tablette == input$return_tab_num, ]
+    if (nrow(assign_row) == 0) {
+      showNotification("Tablette non affect\u00e9e", type = "error")
+      return()
+    }
+
+    if (trimws(assign_row$agent) != trimws(input$return_agent)) {
+      showNotification(paste(input$return_agent, "n'est pas le responsable de cette tablette, il ne peut donc pas la retourner."), type = "error")
+      return()
+    }
+
     new_entry <- data.frame(
       tablette = input$return_tab_num,
-      agent = input$return_agent,
+      chargeur = input$return_charger,
+      powerbank = ifelse(input$return_powerbank, "Oui", "Non"),
+      agent = trimws(input$return_agent),
       date_retour = Sys.Date(),
       stringsAsFactors = FALSE
     )
     returns(rbind(returns(), new_entry))
     current$etat[current$tablette == input$return_tab_num] <- "en stock"
     registered(current)
+    updateTextInput(session, "return_tab_num", value = "")
+    updateTextInput(session, "return_agent", value = "")
+    updateTextInput(session, "return_charger", value = "")
+    updateCheckboxInput(session, "return_powerbank", value = FALSE)
   })
 
   output$return_table <- renderDT(returns())
@@ -293,7 +341,9 @@ server <- function(input, output, session) {
       tablette = input$incident_tab,
       type = input$incident_type,
       commentaire = input$incident_comment,
-      agent = input$incident_agent,
+      agent = trimws(input$incident_agent),
+      chargeur_ok = ifelse(input$incident_charger_ok, "Oui", "Non"),
+      powerbank_ok = ifelse(input$incident_powerbank_ok, "Oui", "Non"),
       date = Sys.Date(),
       stringsAsFactors = FALSE
     )
