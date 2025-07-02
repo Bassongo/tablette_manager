@@ -3,125 +3,134 @@ library(shiny)
 library(DT)
 library(readxl)
 library(shinyjs)
-library(shinythemes)
+library(bslib)
+library(shinyWidgets)
 
 # Interface utilisateur principale
-ui <- tagList(
+ui <- navbarPage(
+  title = tagList(icon("tablet-alt"), "Gestion des Tablettes"),
+  theme = bs_theme(version = 5, bootswatch = "minty"),
   useShinyjs(),
-  tags$head(
-    tags$style(HTML(".btn-primary{background-color:#007bff;border-color:#007bff;}"))
-  ),
-  fluidPage(
-    theme = shinytheme("cerulean"),
-    titlePanel("Gestion des Tablettes"),
-    navlistPanel(
-      widths = c(2, 10),
+  tabPanel(
+    "Enregistrement",
+    tabsetPanel(
       tabPanel(
-        "Enregistrement des tablettes",
-        tabsetPanel(
-          tabPanel(
-            "Enregistrement individuel",
-            sidebarLayout(
-              sidebarPanel(
-                actionButton("register_btn", "Enregistrer", class = "btn-primary"),
-                textInput("reg_tab_num", "Numéro de la tablette"),
-                textInput("reg_charger_num", "Numéro de chargeur"),
-                checkboxInput("reg_has_powerbank", "Powerbank présent")
-              ),
-              mainPanel(DTOutput("register_table"))
+        "Individuel",
+        fluidRow(
+          column(
+            4,
+            card(
+              actionBttn("register_btn", "Enregistrer", style = "fill", color = "primary"),
+              textInput("reg_tab_num", "Numéro de la tablette"),
+              textInput("reg_charger_num", "Numéro de chargeur"),
+              materialSwitch("reg_has_powerbank", "Powerbank présent", status = "primary")
             )
           ),
-          tabPanel(
-            "Enregistrement en masse",
-            sidebarLayout(
-              sidebarPanel(
-                fileInput(
-                  "tablets_register_file",
-                  "Liste des tablettes (Excel)",
-                  accept = c(".xlsx", ".xls")
-                ),
-                actionButton("register_mass_btn", "Enregistrer en masse", class = "btn-primary")
-              ),
-              mainPanel(DTOutput("register_table"))
-            )
-          )
+          column(8, card(DTOutput("register_table")))
         )
       ),
       tabPanel(
-        "Affectation des tablettes",
-        tabsetPanel(
-          tabPanel(
-            "Affectation individuelle",
-            sidebarLayout(
-              sidebarPanel(
-                textInput("tab_num", "Numéro de la tablette"),
-                textInput("charger_num", "Numéro de chargeur"),
-                checkboxInput("has_powerbank", "Powerbank présent"),
-                textInput("agent_group", "Groupe de l'agent"),
-                textInput("agent_name", "Nom de l'agent"),
-                textInput("agent_class", "Classe"),
-                textInput("agent_num", "Numéro de l'agent"),
-                textInput("supervisor_name", "Nom du superviseur"),
-                textInput("supervisor_num", "Numéro du superviseur"),
-                dateInput("assign_date", "Date d'affectation"),
-                actionButton("assign_btn", "Affecter", class = "btn-primary")
+        "En masse",
+        fluidRow(
+          column(
+            4,
+            card(
+              fileInput(
+                "tablets_register_file",
+                "Liste des tablettes (Excel)",
+                accept = c(".xlsx", ".xls")
               ),
-              mainPanel(DTOutput("assign_table"))
+              actionBttn("register_mass_btn", "Enregistrer en masse", style = "fill", color = "primary")
             )
           ),
-          tabPanel(
-            "Affectation en masse",
-            sidebarLayout(
-              sidebarPanel(
-                fileInput("agents_file", "Liste des agents (Excel)", accept = c(".xlsx", ".xls")),
-                fileInput("tablets_file", "Liste des tablettes (Excel)", accept = c(".xlsx", ".xls")),
-                actionButton("mass_assign_btn", "Affecter aléatoirement", class = "btn-primary")
-              ),
-              mainPanel(DTOutput("mass_assign_table"))
-            )
-          )
-        )
-      ),
-      tabPanel(
-        "Retour de tablette",
-        sidebarLayout(
-          sidebarPanel(
-            textInput("return_tab_num", "Numéro de la tablette"),
-            textInput("return_agent", "Nom de l'agent"),
-            textInput("return_charger", "Numéro de chargeur"),
-            checkboxInput("return_powerbank", "Powerbank présent"),
-            actionButton("return_btn", "Confirmer le retour", class = "btn-primary")
-          ),
-          mainPanel(DTOutput("return_table"))
-        )
-      ),
-      tabPanel(
-        "Déclaration d'incident",
-        sidebarLayout(
-          sidebarPanel(
-            textInput("incident_tab", "Numéro de la tablette"),
-            selectInput("incident_type", "Type d'incident", choices = c("écran cassé", "perte", "autre")),
-            textAreaInput("incident_comment", "Commentaire"),
-            textInput("incident_agent", "Nom de l'agent"),
-            checkboxInput("incident_charger_ok", "Chargeur fonctionnel", TRUE),
-            checkboxInput("incident_powerbank_ok", "Powerbank fonctionnel", TRUE),
-            actionButton("incident_btn", "Déclarer", class = "btn-primary")
-          ),
-          mainPanel(DTOutput("incident_table"))
-        )
-      ),
-      tabPanel(
-        "Suivi des tablettes",
-        fluidPage(
-          fluidRow(
-            column(4, verbatimTextOutput("stock_txt")),
-            column(4, verbatimTextOutput("assigned_txt")),
-            column(4, verbatimTextOutput("incident_txt"))
-          ),
-          DTOutput("dashboard_table")
+          column(8, card(DTOutput("register_table")))
         )
       )
     )
+  ),
+  tabPanel(
+    "Affectation",
+    tabsetPanel(
+      tabPanel(
+        "Individuelle",
+        fluidRow(
+          column(
+            4,
+            card(
+              textInput("tab_num", "Numéro de la tablette"),
+              textInput("charger_num", "Numéro de chargeur"),
+              materialSwitch("has_powerbank", "Powerbank présent", status = "primary"),
+              textInput("agent_group", "Groupe de l'agent"),
+              textInput("agent_name", "Nom de l'agent"),
+              textInput("agent_class", "Classe"),
+              textInput("agent_num", "Numéro de l'agent"),
+              textInput("supervisor_name", "Nom du superviseur"),
+              textInput("supervisor_num", "Numéro du superviseur"),
+              dateInput("assign_date", "Date d'affectation"),
+              actionBttn("assign_btn", "Affecter", style = "fill", color = "primary")
+            )
+          ),
+          column(8, card(DTOutput("assign_table")))
+        )
+      ),
+      tabPanel(
+        "En masse",
+        fluidRow(
+          column(
+            4,
+            card(
+              fileInput("agents_file", "Liste des agents (Excel)", accept = c(".xlsx", ".xls")),
+              fileInput("tablets_file", "Liste des tablettes (Excel)", accept = c(".xlsx", ".xls")),
+              actionBttn("mass_assign_btn", "Affecter aléatoirement", style = "fill", color = "primary")
+            )
+          ),
+          column(8, card(DTOutput("mass_assign_table")))
+        )
+      )
+    )
+  ),
+  tabPanel(
+    "Retour de tablette",
+    fluidRow(
+      column(
+        4,
+        card(
+          textInput("return_tab_num", "Numéro de la tablette"),
+          textInput("return_agent", "Nom de l'agent"),
+          textInput("return_charger", "Numéro de chargeur"),
+          materialSwitch("return_powerbank", "Powerbank présent", status = "primary"),
+          actionBttn("return_btn", "Confirmer le retour", style = "fill", color = "primary")
+        )
+      ),
+      column(8, card(DTOutput("return_table")))
+    )
+  ),
+  tabPanel(
+    "Déclaration d'incident",
+    fluidRow(
+      column(
+        4,
+        card(
+          textInput("incident_tab", "Numéro de la tablette"),
+          selectInput("incident_type", "Type d'incident", choices = c("écran cassé", "perte", "autre")),
+          textAreaInput("incident_comment", "Commentaire"),
+          textInput("incident_agent", "Nom de l'agent"),
+          materialSwitch("incident_charger_ok", "Chargeur fonctionnel", value = TRUE, status = "primary"),
+          materialSwitch("incident_powerbank_ok", "Powerbank fonctionnel", value = TRUE, status = "primary"),
+          actionBttn("incident_btn", "Déclarer", style = "fill", color = "primary")
+        )
+      ),
+      column(8, card(DTOutput("incident_table")))
+    )
+  ),
+  tabPanel(
+    "Suivi des tablettes",
+    fluidRow(
+      value_box(title = "Stock disponible", value = textOutput("stock_txt"), showcase = icon("warehouse")),
+      value_box(title = "Tablettes affectées", value = textOutput("assigned_txt"), showcase = icon("users")),
+      value_box(title = "Incidents déclarés", value = textOutput("incident_txt"), showcase = icon("exclamation-triangle"))
+    ),
+    card(DTOutput("dashboard_table"))
   )
 )
 
