@@ -3,12 +3,49 @@ library(shiny)
 library(DT)
 library(readxl)
 library(shinyjs)
+library(shinythemes)
 
 # Interface utilisateur principale
 ui <- tagList(
   useShinyjs(),
+  tags$head(
+    tags$style(HTML(".btn-primary{background-color:#007bff;border-color:#007bff;}"))
+  ),
   navbarPage(
     "Gestion des Tablettes",
+    theme = shinytheme("cerulean"),
+  # Onglet d'enregistrement des nouvelles tablettes
+  tabPanel(
+    "Enregistrement des tablettes",
+    tabsetPanel(
+      tabPanel(
+        "Enregistrement individuel",
+        sidebarLayout(
+          sidebarPanel(
+            actionButton("register_btn", "Enregistrer", class = "btn-primary"),
+            textInput("reg_tab_num", "Num\u00e9ro de la tablette"),
+            textInput("reg_charger_num", "Num\u00e9ro de chargeur"),
+            checkboxInput("reg_has_powerbank", "Powerbank pr\u00e9sent")
+          ),
+          mainPanel(DTOutput("register_table"))
+        )
+      ),
+      tabPanel(
+        "Enregistrement en masse",
+        sidebarLayout(
+          sidebarPanel(
+            fileInput(
+              "tablets_register_file",
+              "Liste des tablettes (Excel)",
+              accept = c(".xlsx", ".xls")
+            ),
+            actionButton("register_mass_btn", "Enregistrer en masse", class = "btn-primary")
+          ),
+          mainPanel(DTOutput("register_table"))
+        )
+      )
+    )
+  ),
   # Onglet d'affectation des tablettes aux agents
   tabPanel(
     "Affectation des tablettes",
@@ -27,7 +64,7 @@ ui <- tagList(
             textInput("supervisor_name", "Nom du superviseur"),
             textInput("supervisor_num", "Num\u00e9ro du superviseur"),
             dateInput("assign_date", "Date d'affectation"),
-            actionButton("assign_btn", "Affecter")
+            actionButton("assign_btn", "Affecter", class = "btn-primary")
           ),
           mainPanel(DTOutput("assign_table"))
         )
@@ -38,41 +75,9 @@ ui <- tagList(
           sidebarPanel(
             fileInput("agents_file", "Liste des agents (Excel)", accept = c(".xlsx", ".xls")),
             fileInput("tablets_file", "Liste des tablettes (Excel)", accept = c(".xlsx", ".xls")),
-            actionButton("mass_assign_btn", "Affecter al\u00e9atoirement")
+            actionButton("mass_assign_btn", "Affecter al\u00e9atoirement", class = "btn-primary")
           ),
           mainPanel(DTOutput("mass_assign_table"))
-        )
-      )
-    )
-  ),
-  # Onglet d'enregistrement des nouvelles tablettes
-  tabPanel(
-    "Enregistrement des tablettes",
-    tabsetPanel(
-      tabPanel(
-        "Enregistrement individuel",
-        sidebarLayout(
-          sidebarPanel(
-            actionButton("register_btn", "Enregistrer"),
-            textInput("reg_tab_num", "Num\u00e9ro de la tablette"),
-            textInput("reg_charger_num", "Num\u00e9ro de chargeur"),
-            checkboxInput("reg_has_powerbank", "Powerbank pr\u00e9sent")
-          ),
-          mainPanel(DTOutput("register_table"))
-        )
-      ),
-      tabPanel(
-        "Enregistrement en masse",
-        sidebarLayout(
-          sidebarPanel(
-            fileInput(
-              "tablets_register_file",
-              "Liste des tablettes (Excel)",
-              accept = c(".xlsx", ".xls")
-            ),
-            actionButton("register_mass_btn", "Enregistrer en masse")
-          ),
-          mainPanel(DTOutput("register_table"))
         )
       )
     )
@@ -86,7 +91,7 @@ ui <- tagList(
         textInput("return_agent", "Nom de l'agent"),
         textInput("return_charger", "Num\u00e9ro de chargeur"),
         checkboxInput("return_powerbank", "Powerbank pr\u00e9sent"),
-        actionButton("return_btn", "Confirmer le retour")
+        actionButton("return_btn", "Confirmer le retour", class = "btn-primary")
       ),
       mainPanel(DTOutput("return_table"))
     )
@@ -102,7 +107,7 @@ ui <- tagList(
         textInput("incident_agent", "Nom de l'agent"),
         checkboxInput("incident_charger_ok", "Chargeur fonctionnel", TRUE),
         checkboxInput("incident_powerbank_ok", "Powerbank fonctionnel", TRUE),
-        actionButton("incident_btn", "D\u00e9clarer")
+        actionButton("incident_btn", "D\u00e9clarer", class = "btn-primary")
       ),
       mainPanel(DTOutput("incident_table"))
     )
@@ -374,7 +379,7 @@ server <- function(input, output, session) {
           checkboxInput("lost_charger", "Avez-vous endommag\u00e9 ou perdu le chargeur initial ?", FALSE)
         ),
         if (pb_missing) checkboxInput("lost_powerbank", "Avez-vous endommag\u00e9 ou perdu la powerbank ?", FALSE),
-        footer = tagList(modalButton("Annuler"), actionButton("confirm_missing", "Confirmer"))
+        footer = tagList(modalButton("Annuler"), actionButton("confirm_missing", "Confirmer", class = "btn-primary"))
       ))
       return()
     }
