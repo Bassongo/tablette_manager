@@ -125,6 +125,7 @@ ui <- tagList(
   )
 )
 
+
 server <- function(input, output, session) {
   # Liste des tablettes enregistr\u00e9es
   registered <- reactiveVal(
