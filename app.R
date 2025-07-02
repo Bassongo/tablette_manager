@@ -190,7 +190,14 @@ server <- function(input, output, session) {
     )
     returns(rbind(returns(), new_entry))
     current <- registered()
-    current$etat[current$tablette == tab_num] <- "en stock"
+    row <- which(current$tablette == tab_num)
+    current$etat[row] <- "en stock"
+    if (length(row) == 1) {
+      if (current$chargeur[row] != "endommag\u00e9") {
+        current$chargeur[row] <- charger_num
+      }
+      current$powerbank[row] <- ifelse(has_powerbank, "Oui", "Non")
+    }
     registered(current)
     updateTextInput(session, "return_tab_num", value = "")
     updateTextInput(session, "return_agent", value = "")
@@ -362,8 +369,11 @@ server <- function(input, output, session) {
       )
       showModal(modalDialog(
         title = "Accessoires manquants",
-        if (charger_mismatch) checkboxInput("lost_charger", "Avez-vous endommag\u00e9 ou perdu le chargeur ?", FALSE),
-        if (pb_missing) checkboxInput("lost_powerbank", "Avez-vous endommag\u00e9 ou perdu le powerbank ?", FALSE),
+        if (charger_mismatch) tagList(
+          p("Ce chargeur n'est pas initialement affect\u00e9 avec cette tablette"),
+          checkboxInput("lost_charger", "Avez-vous endommag\u00e9 ou perdu le chargeur initial ?", FALSE)
+        ),
+        if (pb_missing) checkboxInput("lost_powerbank", "Avez-vous endommag\u00e9 ou perdu la powerbank ?", FALSE),
         footer = tagList(modalButton("Annuler"), actionButton("confirm_missing", "Confirmer"))
       ))
       return()
@@ -425,7 +435,14 @@ server <- function(input, output, session) {
     )
     incidents(rbind(incidents(), new_entry))
     current <- registered()
-    current$etat[current$tablette == input$incident_tab] <- "endommag\u00e9"
+    row <- which(current$tablette == input$incident_tab)
+    current$etat[row] <- "endommag\u00e9"
+    if (!input$incident_charger_ok) {
+      current$chargeur[row] <- "endommag\u00e9"
+    }
+    if (!input$incident_powerbank_ok) {
+      current$powerbank[row] <- "Non"
+    }
     registered(current)
 
     updateTextInput(session, "incident_tab", value = "")
