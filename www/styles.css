@@ -1,0 +1,23 @@
+.navbar {
+  background-color: #004466 !important;
+}
+.navbar .navbar-brand,
+.navbar .nav-link,
+.navbar .nav-link.active {
+  color: #ffffff !important;
+}
+.card {
+  border-radius: 10px;
+}
+.btn-primary {
+  background-color: #006699;
+  border-color: #006699;
+  border-radius: 20px;
+}
+.btn-primary:hover {
+  background-color: #00557a;
+  border-color: #00557a;
+}
+.value-box {
+  border-radius: 10px;
+}

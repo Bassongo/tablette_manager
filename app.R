@@ -9,8 +9,17 @@ library(shinyWidgets)
 # Interface utilisateur principale
 ui <- navbarPage(
   title = tagList(icon("tablet-alt"), "Gestion des Tablettes"),
-  theme = bs_theme(version = 5, bootswatch = "minty"),
+  theme = bs_theme(
+    version = 5,
+    bootswatch = "minty",
+    primary = "#006699",
+    secondary = "#004466",
+    success = "#009E73"
+  ),
   useShinyjs(),
+  header = tagList(
+    tags$link(rel = "stylesheet", type = "text/css", href = "styles.css")
+  ),
   tabPanel(
     "Enregistrement",
     tabsetPanel(
