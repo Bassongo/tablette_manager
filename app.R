@@ -176,6 +176,29 @@ server <- function(input, output, session) {
     )
   )
 
+  # Valeurs temporaires pour la gestion des retours avec accessoires manquants
+  vals <- reactiveValues(pending_return = NULL)
+
+  finalize_return <- function(tab_num, charger_num, has_powerbank, agent) {
+    new_entry <- data.frame(
+      tablette = tab_num,
+      chargeur = charger_num,
+      powerbank = ifelse(has_powerbank, "Oui", "Non"),
+      agent = agent,
+      date_retour = Sys.Date(),
+      stringsAsFactors = FALSE
+    )
+    returns(rbind(returns(), new_entry))
+    current <- registered()
+    current$etat[current$tablette == tab_num] <- "en stock"
+    registered(current)
+    updateTextInput(session, "return_tab_num", value = "")
+    updateTextInput(session, "return_agent", value = "")
+    updateTextInput(session, "return_charger", value = "")
+    updateCheckboxInput(session, "return_powerbank", value = FALSE)
+    vals$pending_return <- NULL
+  }
+
   # Enregistrement manuel d'une tablette
   observeEvent(input$register_btn, {
     new_entry <- data.frame(
@@ -323,21 +346,57 @@ server <- function(input, output, session) {
       return()
     }
 
-    new_entry <- data.frame(
-      tablette = input$return_tab_num,
-      chargeur = input$return_charger,
-      powerbank = ifelse(input$return_powerbank, "Oui", "Non"),
-      agent = trimws(input$return_agent),
-      date_retour = Sys.Date(),
-      stringsAsFactors = FALSE
-    )
-    returns(rbind(returns(), new_entry))
-    current$etat[current$tablette == input$return_tab_num] <- "en stock"
+    pb_expected <- assign_row$powerbank == "Oui"
+    charger_expected <- assign_row$chargeur
+    pb_missing <- pb_expected && !input$return_powerbank
+    charger_mismatch <- charger_expected != input$return_charger
+
+    if (pb_missing || charger_mismatch) {
+      vals$pending_return <- list(
+        tab_num = input$return_tab_num,
+        agent = trimws(input$return_agent),
+        return_charger = input$return_charger,
+        return_powerbank = input$return_powerbank,
+        expected_charger = charger_expected,
+        expected_powerbank = pb_expected
+      )
+      showModal(modalDialog(
+        title = "Accessoires manquants",
+        if (charger_mismatch) checkboxInput("lost_charger", "Avez-vous endommag\u00e9 ou perdu le chargeur ?", FALSE),
+        if (pb_missing) checkboxInput("lost_powerbank", "Avez-vous endommag\u00e9 ou perdu le powerbank ?", FALSE),
+        footer = tagList(modalButton("Annuler"), actionButton("confirm_missing", "Confirmer"))
+      ))
+      return()
+    }
+
+    finalize_return(input$return_tab_num, input$return_charger, input$return_powerbank, trimws(input$return_agent))
+  })
+
+  observeEvent(input$confirm_missing, {
+    req(vals$pending_return)
+    removeModal()
+    params <- vals$pending_return
+
+    pb_missing <- params$expected_powerbank && !params$return_powerbank
+    charger_mismatch <- params$expected_charger != params$return_charger
+
+    if ((charger_mismatch && !isTruthy(input$lost_charger)) || (pb_missing && !isTruthy(input$lost_powerbank))) {
+      showNotification("Retour annul\u00e9: accessoires manquants", type = "error")
+      vals$pending_return <- NULL
+      return()
+    }
+
+    current <- registered()
+    tab_row <- which(current$tablette == params$tab_num)
+    if (charger_mismatch && isTruthy(input$lost_charger)) {
+      current$chargeur[tab_row] <- "endommag\u00e9"
+    }
+    if (pb_missing && isTruthy(input$lost_powerbank)) {
+      current$powerbank[tab_row] <- "Non"
+    }
     registered(current)
-    updateTextInput(session, "return_tab_num", value = "")
-    updateTextInput(session, "return_agent", value = "")
-    updateTextInput(session, "return_charger", value = "")
-    updateCheckboxInput(session, "return_powerbank", value = FALSE)
+
+    finalize_return(params$tab_num, params$return_charger, params$return_powerbank, params$agent)
   })
 
   output$return_table <- renderDT(returns())
@@ -345,6 +404,12 @@ server <- function(input, output, session) {
   observeEvent(input$incident_btn, {
     if (!(input$incident_tab %in% registered()$tablette)) {
       showNotification("Tablette non enregistr\u00e9e", type = "error")
+      return()
+    }
+
+    assign_row <- assignments()[assignments()$tablette == input$incident_tab, ]
+    if (nrow(assign_row) == 0 || trimws(assign_row$agent) != trimws(input$incident_agent)) {
+      showNotification("Cet agent n'est pas responsable de cette tablette", type = "error")
       return()
     }
 
@@ -362,6 +427,13 @@ server <- function(input, output, session) {
     current <- registered()
     current$etat[current$tablette == input$incident_tab] <- "endommag\u00e9"
     registered(current)
+
+    updateTextInput(session, "incident_tab", value = "")
+    updateTextInput(session, "incident_comment", value = "")
+    updateTextInput(session, "incident_agent", value = "")
+    updateSelectInput(session, "incident_type", selected = "\u00e9cran cass\u00e9")
+    updateCheckboxInput(session, "incident_charger_ok", value = TRUE)
+    updateCheckboxInput(session, "incident_powerbank_ok", value = TRUE)
   })
 
   output$incident_table <- renderDT(incidents())
