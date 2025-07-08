@@ -590,7 +590,7 @@ generate_affectation_fiche <- function(assign_data) {
   )
 
   for (v in names(vars)) {
-    xml_txt <- gsub(v, vars[[v]], xml_txt, fixed = TRUE)
+    xml_txt <- gsub(v, xml2::xml_escape(vars[[v]]), xml_txt, fixed = TRUE)
   }
 
   writeLines(xml_txt, doc_xml, useBytes = TRUE)
