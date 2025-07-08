@@ -566,18 +566,12 @@ ui <- navbarPage(
 
 # Fonction pour générer une fiche d'affectation
 generate_affectation_fiche <- function(assign_data) {
-  library(xml2)
+  library(officer)
 
   template_path <- "Fiche_Affectation_Materiel.docx"
-  tmp_dir <- tempfile()
-  dir.create(tmp_dir)
-  unzip(template_path, exdir = tmp_dir)
+  doc <- read_docx(template_path)
 
-  doc_xml <- file.path(tmp_dir, "word", "document.xml")
-  xml_txt <- readLines(doc_xml, encoding = "UTF-8", warn = FALSE)
-  xml_txt <- paste(xml_txt, collapse = "\n")
-
-  vars <- list(
+  replacements <- list(
     "{{groupe}}" = assign_data$groupe,
     "{{agent}}" = assign_data$agent,
     "{{fonction}}" = assign_data$fonction,
@@ -589,23 +583,20 @@ generate_affectation_fiche <- function(assign_data) {
     "{{date}}" = assign_data$date
   )
 
-  for (v in names(vars)) {
-    # Replace placeholders that may have been split by Word tags
-    name <- gsub("[{}]", "", v)
-    pattern <- paste0("\\{\\{[^\\{\\}]*", name, "[^\\{\\}]*\\}\\}")
-    xml_txt <- gsub(pattern, vars[[v]], xml_txt, perl = TRUE)
-    xml_txt <- gsub(v, vars[[v]], xml_txt, fixed = TRUE)
+  for (v in names(replacements)) {
+    doc <- body_replace_all_text(doc, v, replacements[[v]], ignore.case = FALSE)
   }
 
-  writeLines(xml_txt, doc_xml, useBytes = TRUE)
-
-  filename <- paste0("Fiche_", assign_data$agent, "_", assign_data$tablette, "_", Sys.Date(), ".docx")
-  old_wd <- getwd()
-  setwd(tmp_dir)
-  utils::zip(zipfile = file.path(old_wd, filename), files = list.files(".", recursive = TRUE))
-  setwd(old_wd)
-
-  unlink(tmp_dir, recursive = TRUE)
+  filename <- paste0(
+    "Fiche_",
+    assign_data$agent,
+    "_",
+    assign_data$tablette,
+    "_",
+    Sys.Date(),
+    ".docx"
+  )
+  print(doc, target = filename)
   return(filename)
 }
 
