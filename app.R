@@ -590,6 +590,10 @@ generate_affectation_fiche <- function(assign_data) {
   )
 
   for (v in names(vars)) {
+    # Replace placeholders that may have been split by Word tags
+    name <- gsub("[{}]", "", v)
+    pattern <- paste0("\\{\\{[^\\{\\}]*", name, "[^\\{\\}]*\\}\\}")
+    xml_txt <- gsub(pattern, vars[[v]], xml_txt, perl = TRUE)
     xml_txt <- gsub(v, vars[[v]], xml_txt, fixed = TRUE)
   }
 
