@@ -566,32 +566,42 @@ ui <- navbarPage(
 
 # Fonction pour générer une fiche d'affectation
 generate_affectation_fiche <- function(assign_data) {
-  library(officer)
-  
-  # Lire le template
+  library(xml2)
+
   template_path <- "Fiche_Affectation_Materiel.docx"
-  doc <- read_docx(template_path)
-  
-  # Remplacement simple et exact des variables du template avec échappement des accolades
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  unzip(template_path, exdir = tmp_dir)
+
+  doc_xml <- file.path(tmp_dir, "word", "document.xml")
+  xml_txt <- readLines(doc_xml, encoding = "UTF-8", warn = FALSE)
+  xml_txt <- paste(xml_txt, collapse = "\n")
+
   vars <- list(
-    "\\{\\{groupe\\}\\}" = assign_data$groupe,
-    "\\{\\{agent\\}\\}" = assign_data$agent,
-    "\\{\\{fonction\\}\\}" = assign_data$fonction,
-    "\\{\\{telephone\\}\\}" = assign_data$telephone,
-    "\\{\\{tablette\\}\\}" = assign_data$tablette,
-    "\\{\\{chargeur\\}\\}" = assign_data$chargeur,
-    "\\{\\{superviseur\\}\\}" = assign_data$superviseur,
-    "\\{\\{numero_superviseur\\}\\}" = assign_data$numero_superviseur,
-    "\\{\\{date\\}\\}" = assign_data$date
+    "{{groupe}}" = assign_data$groupe,
+    "{{agent}}" = assign_data$agent,
+    "{{fonction}}" = assign_data$fonction,
+    "{{telephone}}" = assign_data$telephone,
+    "{{tablette}}" = assign_data$tablette,
+    "{{chargeur}}" = assign_data$chargeur,
+    "{{superviseur}}" = assign_data$superviseur,
+    "{{numero_superviseur}}" = assign_data$numero_superviseur,
+    "{{date}}" = assign_data$date
   )
+
   for (v in names(vars)) {
-    doc <- body_replace_all_text(doc, v, vars[[v]])
+    xml_txt <- gsub(v, vars[[v]], xml_txt, fixed = TRUE)
   }
-  
-  # Sauvegarder la fiche générée
+
+  writeLines(xml_txt, doc_xml, useBytes = TRUE)
+
   filename <- paste0("Fiche_", assign_data$agent, "_", assign_data$tablette, "_", Sys.Date(), ".docx")
-  print(doc, target = filename)
-  
+  old_wd <- getwd()
+  setwd(tmp_dir)
+  utils::zip(zipfile = file.path(old_wd, filename), files = list.files(".", recursive = TRUE))
+  setwd(old_wd)
+
+  unlink(tmp_dir, recursive = TRUE)
   return(filename)
 }
 
