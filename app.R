@@ -617,18 +617,6 @@ ui <- navbarPage(
         )
       )
     ),
-    fluidRow(
-      column(
-        12,
-        card(
-          card_header("Gestion des superviseurs", class = "card-header"),
-          card_body(
-            fileInput("supervisor_file", "Importer la liste des superviseurs (Excel)", accept = c(".xlsx", ".xls")),
-            DTOutput("supervisors_table")
-          )
-        )
-      )
-    )
   )
 
 # Serveur
@@ -766,25 +754,7 @@ server <- function(input, output, session) {
                   "</p>"))
     }
   })
-  observeEvent(input$supervisor_file, {
-    req(input$supervisor_file)
-    tryCatch({
-      data <- read_excel(input$supervisor_file$datapath)
-      required_cols <- c("user_name", "user_login", "user_password")
-      if (!all(required_cols %in% names(data))) {
-        showNotification("Colonnes manquantes dans le fichier", type = "error")
-      } else {
-        supervisors(data[, required_cols])
-        showNotification("Liste des superviseurs importee", type = "message")
-      }
-    }, error = function(e) {
-      showNotification("Erreur lors de l'import", type = "error")
-    })
-  })
 
-  output$supervisors_table <- renderDT({
-    datatable(supervisors(), options = list(pageLength = 10), rownames = FALSE)
-  })
 
   
   # Observateurs pour les boutons de scan QR
