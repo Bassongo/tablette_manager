@@ -19,5 +19,7 @@ shiny::runApp('app.R')
 
 La détection de QR utilise l'API `BarcodeDetector` lorsqu'elle est
 disponible, avec un repli sur la librairie `jsQR` pour les navigateurs
-non compatibles. Assurez‑vous d'accéder à l'application via un contexte
-sécurisé (HTTPS ou `localhost`) afin de permettre l'accès à la caméra.
+non compatibles. **L'accès à la caméra n'est possible que dans un contexte
+sûr** : utilisez impérativement `https` ou `localhost`. Sur mobile,
+une connexion via l'adresse IP en `http` bloquera la demande
+d'autorisation de la caméra.
