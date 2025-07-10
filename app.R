@@ -314,7 +314,7 @@ ui <- navbarPage(
           column(12,
             card(
               card_header("Tablettes enregistrées", class = "card-header"),
-              card_body(DTOutput("register_table"))
+              card_body(DTOutput("register_table_qr"))
             )
           )
         )
@@ -339,7 +339,7 @@ ui <- navbarPage(
           column(8, 
             card(
               card_header("Tablettes enregistrées", class = "card-header"),
-              card_body(DTOutput("register_table"))
+              card_body(DTOutput("register_table_manual"))
             )
           )
         )
@@ -366,7 +366,7 @@ ui <- navbarPage(
           column(8, 
             card(
               card_header("Tablettes enregistrées", class = "card-header"),
-              card_body(DTOutput("register_table"))
+              card_body(DTOutput("register_table_mass"))
             )
           )
         )
@@ -414,7 +414,7 @@ ui <- navbarPage(
           column(8, 
             card(
               card_header("Affectations en cours", class = "card-header"),
-              card_body(DTOutput("assign_table"))
+              card_body(DTOutput("assign_table_individual"))
             )
           )
         )
@@ -441,7 +441,7 @@ ui <- navbarPage(
           column(8, 
             card(
               card_header("Affectations en cours", class = "card-header"),
-              card_body(DTOutput("assign_table"))
+              card_body(DTOutput("assign_table_mass"))
             )
           )
         )
@@ -1411,7 +1411,7 @@ server <- function(input, output, session) {
   })
   
   # Sorties des tableaux
-  output$register_table <- renderDT({
+  output$register_table_qr <- renderDT({
     data <- filter_by_user(registered_tablets())
     if (nrow(data) > 0) {
       data$powerbank <- ifelse(data$powerbank, "Oui", "Non")
@@ -1427,8 +1427,57 @@ server <- function(input, output, session) {
       rownames = FALSE
     )
   })
-  
-  output$assign_table <- renderDT({
+
+  output$register_table_manual <- renderDT({
+    data <- filter_by_user(registered_tablets())
+    if (nrow(data) > 0) {
+      data$powerbank <- ifelse(data$powerbank, "Oui", "Non")
+      data$chargeur_ok <- ifelse(data$chargeur_ok, "Oui", "Non")
+      data$powerbank_ok <- ifelse(data$powerbank_ok, "Oui", "Non")
+    }
+    datatable(
+      data,
+      options = list(
+        pageLength = 10,
+        language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json')
+      ),
+      rownames = FALSE
+    )
+  })
+
+  output$register_table_mass <- renderDT({
+    data <- filter_by_user(registered_tablets())
+    if (nrow(data) > 0) {
+      data$powerbank <- ifelse(data$powerbank, "Oui", "Non")
+      data$chargeur_ok <- ifelse(data$chargeur_ok, "Oui", "Non")
+      data$powerbank_ok <- ifelse(data$powerbank_ok, "Oui", "Non")
+    }
+    datatable(
+      data,
+      options = list(
+        pageLength = 10,
+        language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json')
+      ),
+      rownames = FALSE
+    )
+  })
+
+  output$assign_table_individual <- renderDT({
+    data <- filter_by_user(assignments())
+    if (nrow(data) > 0) {
+      data$powerbank <- ifelse(data$powerbank, "Oui", "Non")
+    }
+    datatable(
+      data,
+      options = list(
+        pageLength = 10,
+        language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json')
+      ),
+      rownames = FALSE
+    )
+  })
+
+  output$assign_table_mass <- renderDT({
     data <- filter_by_user(assignments())
     if (nrow(data) > 0) {
       data$powerbank <- ifelse(data$powerbank, "Oui", "Non")
