@@ -1546,4 +1546,4 @@ server <- function(input, output, session) {
 }
 
 # Lancement de l'application
-shinyApp(ui = ui, server = server)
+shinyApp(ui = ui, server = server)###
