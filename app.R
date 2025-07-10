@@ -516,6 +516,36 @@ ui <- navbarPage(
     )
   ),
   tabPanel(
+    "Déclaration d'incident",
+    fluidRow(
+      column(
+        4,
+        card(
+          card_header("Déclarer un incident", class = "card-header"),
+          card_body(
+            textInput("incident_agent_id", "ID de l'agent enquêteur"),
+            selectInput("incident_tablet_select", "Sélectionner la tablette", choices = NULL),
+            selectInput("incident_type", "Type d'incident", choices = c("Casse", "Vol", "Endommagé", "Autre")),
+            selectInput("incident_state", "Nouvel état de la tablette", choices = c("En réparation", "Hors service")),
+            materialSwitch("incident_charger_ok", "Chargeur utilisable", status = "primary", value = TRUE),
+            materialSwitch("incident_powerbank_ok", "Powerbank utilisable", status = "primary", value = TRUE),
+            dateInput("incident_date", "Date de l'incident", value = Sys.Date()),
+            textAreaInput("incident_notes", "Notes", rows = 3),
+            div(style = "margin-top: 20px;",
+                actionBttn("declare_incident_btn", "Déclarer", style = "fill", color = "danger", class = "blue-btn")
+            )
+          )
+        )
+      ),
+      column(8,
+        card(
+          card_header("Historique des incidents", class = "card-header"),
+          card_body(DTOutput("incidents_table"))
+        )
+      )
+    )
+  ),
+  tabPanel(
     "Suivi des tablettes",
     fluidRow(
       column(
@@ -588,6 +618,8 @@ server <- function(input, output, session) {
     tablette = character(),
     chargeur = character(),
     powerbank = logical(),
+    chargeur_ok = logical(),
+    powerbank_ok = logical(),
     registration_date = character(),
     etat = character(),
     stringsAsFactors = FALSE
@@ -617,6 +649,19 @@ server <- function(input, output, session) {
     return_condition = character(),
     return_date = character(),
     return_notes = character(),
+    stringsAsFactors = FALSE
+  ))
+
+  tablet_incidents <- reactiveVal(data.frame(
+    tablette = character(),
+    agent_id = character(),
+    agent_name = character(),
+    charger_usable = logical(),
+    powerbank_usable = logical(),
+    incident_type = character(),
+    incident_state = character(),
+    incident_date = character(),
+    notes = character(),
     stringsAsFactors = FALSE
   ))
   
@@ -667,6 +712,8 @@ server <- function(input, output, session) {
       tablette = input$reg_tab_num_qr,
       chargeur = input$reg_charger_num_qr,
       powerbank = input$reg_has_powerbank_qr,
+      chargeur_ok = TRUE,
+      powerbank_ok = input$reg_has_powerbank_qr,
       registration_date = as.character(Sys.Date()),
       etat = "En stock",
       stringsAsFactors = FALSE
@@ -691,6 +738,8 @@ server <- function(input, output, session) {
       tablette = input$reg_tab_num,
       chargeur = input$reg_charger_num,
       powerbank = input$reg_has_powerbank,
+      chargeur_ok = TRUE,
+      powerbank_ok = input$reg_has_powerbank,
       registration_date = as.character(Sys.Date()),
       etat = "En stock",
       stringsAsFactors = FALSE
@@ -723,6 +772,8 @@ server <- function(input, output, session) {
         tablette = data$tablette,
         chargeur = data$chargeur,
         powerbank = data$powerbank,
+        chargeur_ok = TRUE,
+        powerbank_ok = data$powerbank,
         registration_date = as.character(Sys.Date()),
         etat = rep("En stock", nrow(data)),
         stringsAsFactors = FALSE
@@ -900,8 +951,10 @@ server <- function(input, output, session) {
     if (nrow(current_assignments) > 0) {
       choices <- paste(current_assignments$tablette, "-", current_assignments$agent_name)
       updateSelectInput(session, "return_tablet_select", choices = choices)
+      updateSelectInput(session, "incident_tablet_select", choices = choices)
     } else {
       updateSelectInput(session, "return_tablet_select", choices = "Aucune tablette affectée")
+      updateSelectInput(session, "incident_tablet_select", choices = "Aucune tablette affectée")
     }
   })
   
@@ -934,6 +987,27 @@ server <- function(input, output, session) {
         
         # Mettre à jour le chargeur
         updateTextInput(session, "return_charger_num", value = assignment$chargeur)
+      }
+    }
+  })
+
+  observeEvent(input$incident_tablet_select, {
+    req(input$incident_tablet_select)
+
+    current_assignments <- assignments()
+    if (nrow(current_assignments) > 0) {
+      tablet_num <- strsplit(input$incident_tablet_select, " - ")[[1]][1]
+      tablet_idx <- which(current_assignments$tablette == tablet_num)
+
+      if (length(tablet_idx) > 0) {
+        assignment <- current_assignments[tablet_idx[1], ]
+        updateMaterialSwitch(session, "incident_powerbank_ok", value = assignment$powerbank)
+
+        if (assignment$powerbank) {
+          shinyjs::enable("incident_powerbank_ok")
+        } else {
+          shinyjs::disable("incident_powerbank_ok")
+        }
       }
     }
   })
@@ -1116,6 +1190,70 @@ server <- function(input, output, session) {
     process_tablet_return(assignment, modified_input)
     removeModal()
   })
+
+  observeEvent(input$declare_incident_btn, {
+    req(input$incident_agent_id, input$incident_tablet_select)
+
+    current_assignments <- assignments()
+    if (nrow(current_assignments) == 0) {
+      showNotification("Aucune affectation trouvée", type = "error")
+      return()
+    }
+
+    tablet_num <- strsplit(input$incident_tablet_select, " - ")[[1]][1]
+    tablet_idx <- which(current_assignments$tablette == tablet_num)
+
+    if (length(tablet_idx) == 0) {
+      showNotification("Tablette non trouvée dans les affectations", type = "error")
+      return()
+    }
+
+    assignment <- current_assignments[tablet_idx[1], ]
+
+    if (assignment$agent_id != input$incident_agent_id) {
+      showNotification("L'ID de l'agent ne correspond pas à l'affectation", type = "error")
+      return()
+    }
+
+    new_incident <- data.frame(
+      tablette = tablet_num,
+      agent_id = assignment$agent_id,
+      agent_name = assignment$agent_name,
+      charger_usable = input$incident_charger_ok,
+      powerbank_usable = input$incident_powerbank_ok,
+      incident_type = input$incident_type,
+      incident_state = input$incident_state,
+      incident_date = as.character(input$incident_date),
+      notes = input$incident_notes,
+      stringsAsFactors = FALSE
+    )
+
+    current_incidents <- tablet_incidents()
+    tablet_incidents(rbind(current_incidents, new_incident))
+
+    current_tablets <- registered_tablets()
+    reg_idx <- which(current_tablets$tablette == tablet_num)
+    if (length(reg_idx) > 0) {
+      current_tablets$etat[reg_idx] <- input$incident_state
+      current_tablets$chargeur_ok[reg_idx] <- input$incident_charger_ok
+      current_tablets$powerbank_ok[reg_idx] <- input$incident_powerbank_ok
+      registered_tablets(current_tablets)
+    }
+
+    updated_assignments <- current_assignments[-tablet_idx, ]
+    assignments(updated_assignments)
+
+    updateTextInput(session, "incident_agent_id", value = "")
+    updateSelectInput(session, "incident_tablet_select", selected = "")
+    updateSelectInput(session, "incident_type", selected = "Casse")
+    updateSelectInput(session, "incident_state", selected = "En réparation")
+    updateMaterialSwitch(session, "incident_charger_ok", value = TRUE)
+    updateMaterialSwitch(session, "incident_powerbank_ok", value = TRUE)
+    updateDateInput(session, "incident_date", value = Sys.Date())
+    updateTextAreaInput(session, "incident_notes", value = "")
+
+    showNotification("Incident déclaré avec succès!", type = "warning")
+  })
   
   # Observateur pour mettre à jour le statut des tablettes (tableau de suivi)
   observe({
@@ -1158,6 +1296,8 @@ server <- function(input, output, session) {
     data <- registered_tablets()
     if (nrow(data) > 0) {
       data$powerbank <- ifelse(data$powerbank, "Oui", "Non")
+      data$chargeur_ok <- ifelse(data$chargeur_ok, "Oui", "Non")
+      data$powerbank_ok <- ifelse(data$powerbank_ok, "Oui", "Non")
     }
     datatable(
       data,
@@ -1208,6 +1348,27 @@ server <- function(input, output, session) {
         rownames = FALSE,
         colnames = c("Tablette", "ID Agent", "Nom Agent", "Chargeur retourné", "Powerbank retourné", 
                     "Motif", "État", "Date", "Notes")
+      )
+    }
+  })
+
+  output$incidents_table <- renderDT({
+    incidents_data <- tablet_incidents()
+    if (nrow(incidents_data) == 0) {
+      datatable(
+        data.frame(Message = "Aucun incident déclaré"),
+        options = list(pageLength = 10, dom = 't'),
+        rownames = FALSE
+      )
+    } else {
+      datatable(
+        incidents_data,
+        options = list(
+          pageLength = 10,
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json')
+        ),
+        rownames = FALSE,
+        colnames = c("Tablette", "ID Agent", "Nom Agent", "Chargeur OK", "Powerbank OK", "Type", "Etat", "Date", "Notes")
       )
     }
   })
