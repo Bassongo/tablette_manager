@@ -55,6 +55,7 @@ generate_affectation_fiche <- function(assign_data) {
 
 # Interface utilisateur principale
 ui <- navbarPage(
+  id = "navbar",
   title = tagList(icon("tablet-alt"), "Gestion des Tablettes"),
   theme = bs_theme(version = 5, bootswatch = "minty"),
   useShinyjs(),
@@ -546,7 +547,7 @@ ui <- navbarPage(
     )
   ),
   tabPanel(
-    "Suivi des tablettes",
+    "Administration",
     fluidRow(
       column(
         12,
@@ -608,12 +609,32 @@ ui <- navbarPage(
         )
       )
     )
+    fluidRow(
+      column(
+        12,
+        card(
+          card_header("Gestion des superviseurs", class = "card-header"),
+          card_body(
+            fileInput("supervisor_file", "Importer la liste des superviseurs (Excel)", accept = c(".xlsx", ".xls")),
+            DTOutput("supervisors_table")
+          )
+        )
+      )
+    )
   )
 
 # Serveur
 server <- function(input, output, session) {
   
   # Données réactives
+  supervisors <- reactiveVal(data.frame(
+    user_name = character(),
+    user_login = character(),
+    user_password = character(),
+    stringsAsFactors = FALSE
+  ))
+  user_role <- reactiveVal(NULL)
+
   registered_tablets <- reactiveVal(data.frame(
     tablette = character(),
     chargeur = character(),
@@ -674,6 +695,59 @@ server <- function(input, output, session) {
     condition = character(),
     stringsAsFactors = FALSE
   ))
+  observeEvent(TRUE, {
+    showModal(modalDialog(
+      title = "Connexion",
+      textInput("login_user", "Login"),
+      passwordInput("login_pass", "Mot de passe"),
+      footer = tagList(
+        actionButton("login_btn", "Se connecter")
+      ),
+      easyClose = FALSE
+    ))
+  }, once = TRUE)
+
+  observeEvent(input$login_btn, {
+    req(input$login_user, input$login_pass)
+    if (input$login_user == "admin" && input$login_pass == "admin") {
+      user_role("admin")
+    } else {
+      sup <- supervisors()
+      idx <- which(sup$user_login == input$login_user & sup$user_password == input$login_pass)
+      if (length(idx) == 1) {
+        user_role("supervisor")
+      } else {
+        showNotification("Identifiants invalides", type = "error")
+        return()
+      }
+    }
+    removeModal()
+    if (user_role() == "supervisor") {
+      hideTab("navbar", "Administration")
+    } else {
+      showTab("navbar", "Administration")
+    }
+  })
+  observeEvent(input$supervisor_file, {
+    req(input$supervisor_file)
+    tryCatch({
+      data <- read_excel(input$supervisor_file$datapath)
+      required_cols <- c("user_name", "user_login", "user_password")
+      if (!all(required_cols %in% names(data))) {
+        showNotification("Colonnes manquantes dans le fichier", type = "error")
+      } else {
+        supervisors(data[, required_cols])
+        showNotification("Liste des superviseurs importee", type = "message")
+      }
+    }, error = function(e) {
+      showNotification("Erreur lors de l'import", type = "error")
+    })
+  })
+
+  output$supervisors_table <- renderDT({
+    datatable(supervisors(), options = list(pageLength = 10), rownames = FALSE)
+  })
+
   
   # Observateurs pour les boutons de scan QR
   observeEvent(input$scan_tablet_btn, {
