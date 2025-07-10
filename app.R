@@ -249,6 +249,14 @@ ui <- navbarPage(
     "))
   ),
   tabPanel(
+    "Accueil",
+    fluidRow(
+      column(12,
+        div(style = "padding:40px; text-align:center;", uiOutput("welcome_message"))
+      )
+    )
+  ),
+  tabPanel(
     "Enregistrement",
     tabsetPanel(
       tabPanel(
@@ -634,6 +642,7 @@ server <- function(input, output, session) {
     stringsAsFactors = FALSE
   ))
   user_role <- reactiveVal(NULL)
+  current_user <- reactiveVal(NULL)
 
   registered_tablets <- reactiveVal(data.frame(
     tablette = character(),
@@ -643,6 +652,7 @@ server <- function(input, output, session) {
     powerbank_ok = logical(),
     registration_date = character(),
     etat = character(),
+    user_login = character(),
     stringsAsFactors = FALSE
   ))
   
@@ -659,6 +669,7 @@ server <- function(input, output, session) {
     supervisor_name = character(),
     supervisor_num = character(),
     assign_date = character(),
+    user_login = character(),
     stringsAsFactors = FALSE
   ))
   
@@ -670,6 +681,7 @@ server <- function(input, output, session) {
     return_condition = character(),
     return_date = character(),
     return_notes = character(),
+    user_login = character(),
     stringsAsFactors = FALSE
   ))
 
@@ -683,6 +695,7 @@ server <- function(input, output, session) {
     incident_state = character(),
     incident_date = character(),
     notes = character(),
+    user_login = character(),
     stringsAsFactors = FALSE
   ))
   
@@ -695,6 +708,14 @@ server <- function(input, output, session) {
     condition = character(),
     stringsAsFactors = FALSE
   ))
+
+  filter_by_user <- function(data) {
+    if (user_role() == "supervisor") {
+      data[data$user_login == current_user(), , drop = FALSE]
+    } else {
+      data
+    }
+  }
   observeEvent(TRUE, {
     showModal(modalDialog(
       title = "Connexion",
@@ -711,11 +732,13 @@ server <- function(input, output, session) {
     req(input$login_user, input$login_pass)
     if (input$login_user == "admin" && input$login_pass == "admin") {
       user_role("admin")
+      current_user("admin")
     } else {
       sup <- supervisors()
       idx <- which(sup$user_login == input$login_user & sup$user_password == input$login_pass)
       if (length(idx) == 1) {
         user_role("supervisor")
+        current_user(input$login_user)
       } else {
         showNotification("Identifiants invalides", type = "error")
         return()
@@ -726,6 +749,20 @@ server <- function(input, output, session) {
       hideTab("navbar", "Administration")
     } else {
       showTab("navbar", "Administration")
+    }
+    updateNavbarPage(session, "navbar", selected = "Accueil")
+  })
+
+  output$welcome_message <- renderUI({
+    req(current_user(), user_role())
+    if (user_role() == "supervisor") {
+      HTML(paste0("<h2>Bienvenue ", current_user(), "</h2>",
+                  "<p>Vous \u00eates connect\u00e9 en tant que superviseur. " ,
+                  "Vous ne voyez que vos propres actions.</p>"))
+    } else {
+      HTML(paste0("<h2>Bienvenue ", current_user(), "</h2>",
+                  "<p>Vous \u00eates connect\u00e9 en tant qu'administrateur." ,
+                  "</p>"))
     }
   })
   observeEvent(input$supervisor_file, {
@@ -790,6 +827,7 @@ server <- function(input, output, session) {
       powerbank_ok = input$reg_has_powerbank_qr,
       registration_date = as.character(Sys.Date()),
       etat = "En stock",
+      user_login = current_user(),
       stringsAsFactors = FALSE
     )
 
@@ -816,6 +854,7 @@ server <- function(input, output, session) {
       powerbank_ok = input$reg_has_powerbank,
       registration_date = as.character(Sys.Date()),
       etat = "En stock",
+      user_login = current_user(),
       stringsAsFactors = FALSE
     )
     
@@ -850,6 +889,7 @@ server <- function(input, output, session) {
         powerbank_ok = data$powerbank,
         registration_date = as.character(Sys.Date()),
         etat = rep("En stock", nrow(data)),
+        user_login = rep(current_user(), nrow(data)),
         stringsAsFactors = FALSE
       )
       
@@ -890,6 +930,7 @@ server <- function(input, output, session) {
       supervisor_name = input$supervisor_name,
       supervisor_num = input$supervisor_num,
       assign_date = as.character(input$assign_date),
+      user_login = current_user(),
       stringsAsFactors = FALSE
     )
     
@@ -951,6 +992,7 @@ server <- function(input, output, session) {
         supervisor_name = agents_data$superviseur[1:n_tablets],
         supervisor_num = agents_data$numero_superviseur[1:n_tablets],
         assign_date = as.character(Sys.Date()),
+        user_login = rep(current_user(), n_tablets),
         stringsAsFactors = FALSE
       )
       current_assignments <- assignments()
@@ -973,7 +1015,7 @@ server <- function(input, output, session) {
   
   # Mise à jour des choix pour la génération de fiches
   observe({
-    current_assignments <- assignments()
+    current_assignments <- filter_by_user(assignments())
     if (nrow(current_assignments) > 0) {
       choices <- paste(current_assignments$agent_name, "-", current_assignments$tablette)
       updateSelectInput(session, "fiche_assign_select", choices = choices)
@@ -984,7 +1026,7 @@ server <- function(input, output, session) {
   observeEvent(input$generate_fiche_btn, {
     req(input$fiche_assign_select)
     
-    current_assignments <- assignments()
+    current_assignments <- filter_by_user(assignments())
     selected_index <- which(paste(current_assignments$agent_name, "-", current_assignments$tablette) == input$fiche_assign_select)
     
     if (length(selected_index) > 0) {
@@ -1001,7 +1043,7 @@ server <- function(input, output, session) {
   
   # Génération de toutes les fiches
   observeEvent(input$generate_all_fiches_btn, {
-    current_assignments <- assignments()
+    current_assignments <- filter_by_user(assignments())
     
     if (nrow(current_assignments) == 0) {
       showNotification("Aucune affectation à traiter", type = "warning")
@@ -1021,7 +1063,7 @@ server <- function(input, output, session) {
   
   # Observateur pour mettre à jour les choix de tablettes affectées et le powerbank
   observe({
-    current_assignments <- assignments()
+    current_assignments <- filter_by_user(assignments())
     if (nrow(current_assignments) > 0) {
       choices <- paste(current_assignments$tablette, "-", current_assignments$agent_name)
       updateSelectInput(session, "return_tablet_select", choices = choices)
@@ -1036,7 +1078,7 @@ server <- function(input, output, session) {
   observeEvent(input$return_tablet_select, {
     req(input$return_tablet_select)
     
-    current_assignments <- assignments()
+    current_assignments <- filter_by_user(assignments())
     if (nrow(current_assignments) > 0) {
       # Extraire le numéro de tablette de la sélection
       tablet_num <- strsplit(input$return_tablet_select, " - ")[[1]][1]
@@ -1068,7 +1110,7 @@ server <- function(input, output, session) {
   observeEvent(input$incident_tablet_select, {
     req(input$incident_tablet_select)
 
-    current_assignments <- assignments()
+    current_assignments <- filter_by_user(assignments())
     if (nrow(current_assignments) > 0) {
       tablet_num <- strsplit(input$incident_tablet_select, " - ")[[1]][1]
       tablet_idx <- which(current_assignments$tablette == tablet_num)
@@ -1090,7 +1132,7 @@ server <- function(input, output, session) {
   output$powerbank_info <- renderText({
     req(input$return_tablet_select)
     
-    current_assignments <- assignments()
+    current_assignments <- filter_by_user(assignments())
     if (nrow(current_assignments) > 0) {
       tablet_num <- strsplit(input$return_tablet_select, " - ")[[1]][1]
       tablet_idx <- which(current_assignments$tablette == tablet_num)
@@ -1123,6 +1165,7 @@ server <- function(input, output, session) {
       return_condition = input_data$return_condition,
       return_date = as.character(input_data$return_date),
       return_notes = input_data$return_notes,
+      user_login = current_user(),
       stringsAsFactors = FALSE
     )
     
@@ -1150,7 +1193,7 @@ server <- function(input, output, session) {
     }
     
     # Supprimer l'affectation
-    current_assignments <- assignments()
+    current_assignments <- filter_by_user(assignments())
     assignment_idx <- which(current_assignments$tablette == assignment$tablette)
     if (length(assignment_idx) > 0) {
       updated_assignments <- current_assignments[-assignment_idx, ]
@@ -1175,7 +1218,7 @@ server <- function(input, output, session) {
     req(input$return_agent_id, input$return_tablet_select)
     
     # Vérifier que l'agent existe et a une tablette affectée
-    current_assignments <- assignments()
+    current_assignments <- filter_by_user(assignments())
     if (nrow(current_assignments) == 0) {
       showNotification("Aucune affectation trouvée", type = "error")
       return()
@@ -1232,7 +1275,7 @@ server <- function(input, output, session) {
   observeEvent(input$confirm_return, {
     req(input$return_agent_id)
     
-    current_assignments <- assignments()
+    current_assignments <- filter_by_user(assignments())
     agent_idx <- which(current_assignments$agent_id == input$return_agent_id)
     
     if (length(agent_idx) == 0) {
@@ -1268,7 +1311,7 @@ server <- function(input, output, session) {
   observeEvent(input$declare_incident_btn, {
     req(input$incident_agent_id, input$incident_tablet_select)
 
-    current_assignments <- assignments()
+    current_assignments <- filter_by_user(assignments())
     if (nrow(current_assignments) == 0) {
       showNotification("Aucune affectation trouvée", type = "error")
       return()
@@ -1299,6 +1342,7 @@ server <- function(input, output, session) {
       incident_state = input$incident_state,
       incident_date = as.character(input$incident_date),
       notes = input$incident_notes,
+      user_login = current_user(),
       stringsAsFactors = FALSE
     )
 
@@ -1331,9 +1375,9 @@ server <- function(input, output, session) {
   
   # Observateur pour mettre à jour le statut des tablettes (tableau de suivi)
   observe({
-    reg_data <- registered_tablets()
-    assign_data <- assignments()
-    returns_data <- tablet_returns()
+    reg_data <- filter_by_user(registered_tablets())
+    assign_data <- filter_by_user(assignments())
+    returns_data <- filter_by_user(tablet_returns())
     if (nrow(reg_data) > 0) {
       suivi <- reg_data
       suivi$status <- reg_data$etat
@@ -1367,7 +1411,7 @@ server <- function(input, output, session) {
   
   # Sorties des tableaux
   output$register_table <- renderDT({
-    data <- registered_tablets()
+    data <- filter_by_user(registered_tablets())
     if (nrow(data) > 0) {
       data$powerbank <- ifelse(data$powerbank, "Oui", "Non")
       data$chargeur_ok <- ifelse(data$chargeur_ok, "Oui", "Non")
@@ -1384,7 +1428,7 @@ server <- function(input, output, session) {
   })
   
   output$assign_table <- renderDT({
-    data <- assignments()
+    data <- filter_by_user(assignments())
     if (nrow(data) > 0) {
       data$powerbank <- ifelse(data$powerbank, "Oui", "Non")
     }
@@ -1400,7 +1444,7 @@ server <- function(input, output, session) {
   
   # Output pour le tableau des retours
   output$returns_table <- renderDT({
-    returns_data <- tablet_returns()
+    returns_data <- filter_by_user(tablet_returns())
     if (nrow(returns_data) == 0) {
       datatable(
         data.frame(Message = "Aucun retour enregistré"),
@@ -1427,7 +1471,7 @@ server <- function(input, output, session) {
   })
 
   output$incidents_table <- renderDT({
-    incidents_data <- tablet_incidents()
+    incidents_data <- filter_by_user(tablet_incidents())
     if (nrow(incidents_data) == 0) {
       datatable(
         data.frame(Message = "Aucun incident déclaré"),
@@ -1450,25 +1494,25 @@ server <- function(input, output, session) {
   # Outputs pour les compteurs du tableau de bord
   
   output$available_tablets_count <- renderText({
-    registered_data <- registered_tablets()
+    registered_data <- filter_by_user(registered_tablets())
     if (nrow(registered_data) == 0) return("0")
     sum(registered_data$etat == "En stock", na.rm = TRUE)
   })
   
   output$assigned_tablets_count <- renderText({
-    registered_data <- registered_tablets()
+    registered_data <- filter_by_user(registered_tablets())
     if (nrow(registered_data) == 0) return("0")
     sum(registered_data$etat == "Affectée", na.rm = TRUE)
   })
   
   output$returned_tablets_count <- renderText({
-    registered_data <- registered_tablets()
+    registered_data <- filter_by_user(registered_tablets())
     if (nrow(registered_data) == 0) return("0")
     sum(registered_data$etat == "En réparation", na.rm = TRUE)
   })
   
   output$out_of_service_tablets_count <- renderText({
-    registered_data <- registered_tablets()
+    registered_data <- filter_by_user(registered_tablets())
     if (nrow(registered_data) == 0) return("0")
     sum(registered_data$etat == "Hors service", na.rm = TRUE)
   })
