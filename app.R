@@ -60,6 +60,7 @@ ui <- navbarPage(
   useShinyjs(),
   tags$head(
     tags$link(rel = "stylesheet", type = "text/css", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"),
+    tags$script(src = "qr_scanner.js"),
     tags$style(HTML("
       /* Variables CSS personnalisées */
       :root {
@@ -630,15 +631,55 @@ server <- function(input, output, session) {
   
   # Observateurs pour les boutons de scan QR
   observeEvent(input$scan_tablet_btn, {
-    print("=== BOUTON SCAN TABLETTE CLIQUÉ ===")
-    print("Déclenchement du scan QR côté client...")
-    runjs("alert('Test scan tablette - Fonctionnalité en développement');")
+    showModal(modalDialog(
+      title = "Scanner QR Tablette",
+      tags$div(id = "qr-reader"),
+      easyClose = TRUE,
+      footer = modalButton("Fermer")
+    ))
+    session$sendCustomMessage('start-scan', list(target = 'scanned_tablet_code'))
   })
-  
+
   observeEvent(input$scan_charger_btn, {
-    print("=== BOUTON SCAN CHARGEUR CLIQUÉ ===")
-    print("Déclenchement du scan QR côté client...")
-    runjs("alert('Test scan chargeur - Fonctionnalité en développement');")
+    showModal(modalDialog(
+      title = "Scanner QR Chargeur",
+      tags$div(id = "qr-reader"),
+      easyClose = TRUE,
+      footer = modalButton("Fermer")
+    ))
+    session$sendCustomMessage('start-scan', list(target = 'scanned_charger_code'))
+  })
+
+  observeEvent(input$scanned_tablet_code, {
+    updateTextInput(session, 'reg_tab_num_qr', value = input$scanned_tablet_code)
+  })
+
+  observeEvent(input$scanned_charger_code, {
+    updateTextInput(session, 'reg_charger_num_qr', value = input$scanned_charger_code)
+  })
+
+  # Enregistrement via QR
+  observeEvent(input$register_qr_btn, {
+    req(input$reg_tab_num_qr, input$reg_charger_num_qr)
+
+    new_tablet <- data.frame(
+      tablette = input$reg_tab_num_qr,
+      chargeur = input$reg_charger_num_qr,
+      powerbank = input$reg_has_powerbank_qr,
+      registration_date = as.character(Sys.Date()),
+      etat = "En stock",
+      stringsAsFactors = FALSE
+    )
+
+    current_tablets <- registered_tablets()
+    updated_tablets <- rbind(current_tablets, new_tablet)
+    registered_tablets(updated_tablets)
+
+    updateTextInput(session, 'reg_tab_num_qr', value = '')
+    updateTextInput(session, 'reg_charger_num_qr', value = '')
+    updateMaterialSwitch(session, 'reg_has_powerbank_qr', value = FALSE)
+
+    showNotification("Tablette enregistrée avec succès!", type = "default")
   })
   
   # Enregistrement manuel
