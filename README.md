@@ -14,3 +14,10 @@ Assurez-vous d'avoir R et les packages `shiny`, `DT`, `readxl` et `shinyjs` inst
 ```R
 shiny::runApp('app.R')
 ```
+
+### QR code
+
+La détection de QR utilise l'API `BarcodeDetector` lorsqu'elle est
+disponible, avec un repli sur la librairie `jsQR` pour les navigateurs
+non compatibles. Assurez‑vous d'accéder à l'application via un contexte
+sécurisé (HTTPS ou `localhost`) afin de permettre l'accès à la caméra.

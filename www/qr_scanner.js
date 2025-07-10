@@ -30,6 +30,25 @@ function startQrScanner(targetInput) {
           }).catch(function(){ requestAnimationFrame(detect); });
         };
         requestAnimationFrame(detect);
+      } else if (window.jsQR) {
+        var canvas = document.createElement('canvas');
+        var context = canvas.getContext('2d');
+        var scan = function(){
+          if (!currentStream) return;
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          var imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          var code = jsQR(imageData.data, canvas.width, canvas.height);
+          if (code) {
+            Shiny.setInputValue(targetInput, code.data, {priority:'event'});
+            stopQrScanner();
+            $("#shiny-modal").modal('hide');
+          } else {
+            requestAnimationFrame(scan);
+          }
+        };
+        requestAnimationFrame(scan);
       } else {
         container.innerHTML = 'BarcodeDetector API non support\xC3\xA9e';
       }

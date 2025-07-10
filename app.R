@@ -60,6 +60,7 @@ ui <- navbarPage(
   useShinyjs(),
   tags$head(
     tags$link(rel = "stylesheet", type = "text/css", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"),
+    tags$script(src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"),
     tags$script(src = "qr_scanner.js"),
     tags$style(HTML("
       /* Variables CSS personnalisées */
