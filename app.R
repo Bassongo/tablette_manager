@@ -710,7 +710,8 @@ server <- function(input, output, session) {
   ))
 
   filter_by_user <- function(data) {
-    if (user_role() == "supervisor") {
+    role <- user_role()
+    if (!is.null(role) && role == "supervisor") {
       data[data$user_login == current_user(), , drop = FALSE]
     } else {
       data
