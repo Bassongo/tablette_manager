@@ -6,294 +6,52 @@ library(shinyjs)
 library(bslib)
 library(shinyWidgets)
 
-# CSS personnalisé pour un design moderne et élégant
-custom_css <- "
-/* Variables CSS pour les couleurs */
-:root {
-  --primary-color: #4A90E2;
-  --secondary-color: #7ED321;
-  --accent-color: #F5A623;
-  --danger-color: #D0021B;
-  --success-color: #7ED321;
-  --warning-color: #F5A623;
-  --info-color: #4A90E2;
-  --light-bg: #F8F9FA;
-  --dark-text: #2C3E50;
-  --border-radius: 12px;
-  --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --transition: all 0.3s ease;
+# Fonction pour analyser les placeholders dans le template
+analyze_document_variables <- function(template_path) {
+  library(officer)
+  doc <- read_docx(template_path)
+  doc_text <- docx_summary(doc)$text
+  full_text <- paste(doc_text, collapse = " ")
+  placeholder_pattern <- "\\{\\{[^}]+\\}\\}"
+  placeholders <- regmatches(full_text, gregexpr(placeholder_pattern, full_text))[[1]]
+  unique(placeholders)
 }
 
-/* Style général de l'application */
-body {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: var(--dark-text);
-}
-
-/* Navigation bar stylisée */
-.navbar {
-  background: linear-gradient(90deg, #4A90E2 0%, #357ABD 100%) !important;
-  box-shadow: var(--box-shadow);
-  border-radius: 0 0 var(--border-radius) var(--border-radius);
-}
-
-.navbar-brand {
-  color: white !important;
-  font-weight: bold;
-  font-size: 1.5rem;
-}
-
-.navbar-nav .nav-link {
-  color: rgba(255, 255, 255, 0.9) !important;
-  font-weight: 500;
-  transition: var(--transition);
-  border-radius: var(--border-radius);
-  margin: 0 5px;
-}
-
-.navbar-nav .nav-link:hover,
-.navbar-nav .nav-link.active {
-  color: white !important;
-  background-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-/* Cards stylisées */
-.card {
-  background: white;
-  border: none;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  transition: var(--transition);
-  margin-bottom: 20px;
-  overflow: hidden;
-}
-
-.card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-}
-
-.card-header {
-  background: linear-gradient(135deg, var(--primary-color) 0%, #357ABD 100%);
-  color: white;
-  font-weight: bold;
-  border: none;
-  padding: 15px 20px;
-}
-
-/* Boutons stylisés */
-.blue-btn {
-  background: linear-gradient(135deg, var(--primary-color) 0%, #357ABD 100%) !important;
-  border: none !important;
-  color: white !important;
-  border-radius: var(--border-radius) !important;
-  padding: 12px 24px !important;
-  font-weight: 600 !important;
-  font-size: 14px !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.5px !important;
-  box-shadow: var(--box-shadow) !important;
-  transition: var(--transition) !important;
-  position: relative !important;
-  overflow: hidden !important;
-}
-
-.blue-btn:hover {
-  background: linear-gradient(135deg, #357ABD 0%, #2E6DA4 100%) !important;
-  color: white !important;
-  transform: translateY(-2px) !important;
-  box-shadow: 0 6px 20px rgba(74, 144, 226, 0.4) !important;
-}
-
-.blue-btn:focus {
-  background: linear-gradient(135deg, var(--primary-color) 0%, #357ABD 100%) !important;
-  color: white !important;
-  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.3) !important;
-}
-
-.blue-btn:active {
-  transform: translateY(0) !important;
-}
-
-/* Inputs stylisés */
-.form-control {
-  border-radius: var(--border-radius);
-  border: 2px solid #E9ECEF;
-  padding: 12px 15px;
-  font-size: 14px;
-  transition: var(--transition);
-  background-color: #FAFBFC;
-}
-
-.form-control:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 0.2rem rgba(74, 144, 226, 0.25);
-  background-color: white;
-}
-
-/* Labels stylisés */
-label {
-  font-weight: 600;
-  color: var(--dark-text);
-  margin-bottom: 8px;
-  font-size: 14px;
-}
-
-/* Material switches stylisés */
-.material-switch {
-  margin: 15px 0;
-}
-
-/* Value boxes stylisés */
-.value-box {
-  background: white;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  padding: 20px;
-  text-align: center;
-  transition: var(--transition);
-}
-
-.value-box:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-}
-
-/* DataTables stylisés */
-.dataTables_wrapper {
-  background: white;
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  padding: 20px;
-  margin-top: 20px;
-}
-
-.dataTables_wrapper .dataTables_length,
-.dataTables_wrapper .dataTables_filter {
-  margin-bottom: 15px;
-}
-
-.dataTables_wrapper .dataTables_length select,
-.dataTables_wrapper .dataTables_filter input {
-  border-radius: var(--border-radius);
-  border: 2px solid #E9ECEF;
-  padding: 8px 12px;
-}
-
-/* Tabs stylisés */
-.nav-tabs {
-  border-bottom: 2px solid #E9ECEF;
-  margin-bottom: 20px;
-}
-
-.nav-tabs .nav-link {
-  border: none;
-  border-radius: var(--border-radius) var(--border-radius) 0 0;
-  color: var(--dark-text);
-  font-weight: 500;
-  padding: 12px 20px;
-  transition: var(--transition);
-}
-
-.nav-tabs .nav-link:hover {
-  background-color: #F8F9FA;
-  border-color: transparent;
-}
-
-.nav-tabs .nav-link.active {
-  background: linear-gradient(135deg, var(--primary-color) 0%, #357ABD 100%);
-  color: white;
-  border-color: transparent;
-}
-
-/* File inputs stylisés */
-.file-input {
-  background: #F8F9FA;
-  border: 2px dashed #DEE2E6;
-  border-radius: var(--border-radius);
-  padding: 20px;
-  text-align: center;
-  transition: var(--transition);
-}
-
-.file-input:hover {
-  border-color: var(--primary-color);
-  background-color: rgba(74, 144, 226, 0.05);
-}
-
-/* Notifications stylisées */
-.shiny-notification {
-  border-radius: var(--border-radius);
-  box-shadow: var(--box-shadow);
-  font-weight: 500;
-}
-
-/* Modal stylisé */
-.modal-content {
-  border-radius: var(--border-radius);
-  border: none;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-}
-
-.modal-header {
-  background: linear-gradient(135deg, var(--primary-color) 0%, #357ABD 100%);
-  color: white;
-  border-radius: var(--border-radius) var(--border-radius) 0 0;
-  border: none;
-}
-
-.modal-footer {
-  border-top: 1px solid #E9ECEF;
-  padding: 15px 20px;
-}
-
-/* Responsive design */
-@media (max-width: 768px) {
-  .card {
-    margin-bottom: 15px;
+# Fonction pour générer une fiche d'affectation
+generate_affectation_fiche <- function(assign_data) {
+  library(officer)
+  
+  # Lire le template
+  doc <- read_docx("Fiche_Affectation_Materiel.docx")
+  
+  # Mapping direct des placeholders
+  replacements <- list(
+    "{{groupe}}" = as.character(ifelse(is.na(assign_data$agent_group) || assign_data$agent_group == "", "N/A", assign_data$agent_group)),
+    "{{agent}}" = as.character(ifelse(is.na(assign_data$agent_name) || assign_data$agent_name == "", "N/A", assign_data$agent_name)),
+    "{{fonction}}" = as.character(ifelse(is.na(assign_data$agent_function) || assign_data$agent_function == "", "N/A", assign_data$agent_function)),
+    "{{Téléphone}}" = as.character(ifelse(is.na(assign_data$agent_phone) || assign_data$agent_phone == "", "N/A", assign_data$agent_phone)),
+    "{{tablette}}" = as.character(ifelse(is.na(assign_data$tablette) || assign_data$tablette == "", "N/A", assign_data$tablette)),
+    "{{chargeur}}" = as.character(ifelse(is.na(assign_data$chargeur) || assign_data$chargeur == "", "N/A", assign_data$chargeur)),
+    "{{batterie}}" = as.character(ifelse(is.na(assign_data$powerbank) || assign_data$powerbank == "", "N/A", ifelse(as.logical(assign_data$powerbank), "Oui", "Non"))),
+    "{{superviseur}}" = as.character(ifelse(is.na(assign_data$supervisor_name) || assign_data$supervisor_name == "", "N/A", assign_data$supervisor_name)),
+    "{{adresse}}" = as.character(ifelse(is.na(assign_data$supervisor_num) || assign_data$supervisor_num == "", "N/A", assign_data$supervisor_num)),
+    "{{date}}" = as.character(ifelse(is.na(assign_data$assign_date) || assign_data$assign_date == "", "N/A", assign_data$assign_date))
+  )
+  
+  # Appliquer les remplacements
+  for (placeholder in names(replacements)) {
+    doc <- doc %>% 
+      body_replace_all_text(placeholder, replacements[[placeholder]], fixed = TRUE)
   }
   
-  .blue-btn {
-    width: 100%;
-    margin-bottom: 10px;
-  }
+  # Générer le nom de fichier
+  safe_agent_name <- gsub("[^a-zA-Z0-9]", "_", assign_data$agent_name)
+  safe_tablet_name <- gsub("[^a-zA-Z0-9]", "_", assign_data$tablette)
+  filename <- paste0("Fiche_", safe_agent_name, "_", safe_tablet_name, "_", Sys.Date(), ".docx")
   
-  .value-box {
-    margin-bottom: 15px;
-  }
+  print(doc, target = filename)
+  return(filename)
 }
-
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.card, .value-box {
-  animation: fadeIn 0.6s ease-out;
-}
-
-/* Scrollbar personnalisée */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #F1F1F1;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--primary-color);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #357ABD;
-}
-"
 
 # Interface utilisateur principale
 ui <- navbarPage(
@@ -301,15 +59,189 @@ ui <- navbarPage(
   theme = bs_theme(version = 5, bootswatch = "minty"),
   useShinyjs(),
   tags$head(
-    tags$style(HTML(custom_css)),
-    tags$script(HTML("
-      function downloadFile(filename) {
-        var link = document.createElement('a');
-        link.href = 'download/' + filename;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    tags$link(rel = "stylesheet", type = "text/css", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"),
+    tags$style(HTML("
+      /* Variables CSS personnalisées */
+      :root {
+        --primary-color: #007bff;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --light-bg: #f8f9fa;
+        --border-radius: 10px;
+        --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      
+      /* Style général */
+      body {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+      
+      /* Navbar personnalisée */
+      .navbar {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%) !important;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        border: none;
+      }
+      
+      .navbar-brand {
+        color: white !important;
+        font-weight: bold;
+        font-size: 1.5rem;
+      }
+      
+      .navbar-nav .nav-link {
+        color: rgba(255, 255, 255, 0.9) !important;
+        font-weight: 500;
+        transition: all 0.3s ease;
+      }
+      
+      .navbar-nav .nav-link:hover,
+      .navbar-nav .nav-link.active {
+        color: white !important;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 5px;
+      }
+      
+      /* Cards stylisées */
+      .card {
+        border: none;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        background: white;
+        margin-bottom: 20px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+      }
+      
+      .card-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        font-weight: bold;
+        border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
+        border: none;
+        padding: 15px 20px;
+      }
+      
+      .card-body {
+        padding: 25px;
+      }
+      
+      /* Boutons personnalisés */
+      .blue-btn {
+        background: linear-gradient(135deg, var(--primary-color) 0%, #0056b3 100%) !important;
+        border: none;
+        border-radius: 25px;
+        padding: 12px 30px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+      }
+      
+      .blue-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+      }
+      
+      /* Boutons d'action */
+      .btn-success {
+        background: linear-gradient(135deg, var(--success-color) 0%, #1e7e34 100%) !important;
+        border: none;
+        border-radius: 25px;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+      }
+      
+      .btn-primary {
+        background: linear-gradient(135deg, var(--primary-color) 0%, #0056b3 100%) !important;
+        border: none;
+        border-radius: 25px;
+        box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+      }
+      
+      .btn-warning {
+        background: linear-gradient(135deg, var(--warning-color) 0%, #e0a800 100%) !important;
+        border: none;
+        border-radius: 25px;
+        box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+      }
+      
+      /* Champs de saisie */
+      .form-control {
+        border-radius: 10px;
+        border: 2px solid #e9ecef;
+        padding: 12px 15px;
+        transition: all 0.3s ease;
+        background-color: #f8f9fa;
+      }
+      
+      .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        background-color: white;
+      }
+      
+      /* Switch personnalisé */
+      .material-switch .switch {
+        background-color: #ccc;
+        border-radius: 20px;
+      }
+      
+      .material-switch .switch.active {
+        background-color: var(--primary-color);
+      }
+      
+      /* Titres stylisés */
+      h4 {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-bottom: 20px;
+        text-align: center;
+        font-size: 1.3rem;
+      }
+      
+      h5 {
+        color: var(--primary-color);
+        font-weight: 600;
+        margin-bottom: 15px;
+        font-size: 1.1rem;
+      }
+      
+      /* Tableaux */
+      .dataTables_wrapper {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 20px;
+        box-shadow: var(--box-shadow);
+      }
+      
+      /* Animations */
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      
+      .card {
+        animation: fadeIn 0.6s ease-out;
+      }
+      
+      /* Responsive */
+      @media (max-width: 768px) {
+        .card-body {
+          padding: 15px;
+        }
+        
+        .btn {
+          width: 100%;
+          margin-bottom: 10px;
+        }
       }
     "))
   ),
@@ -317,15 +249,75 @@ ui <- navbarPage(
     "Enregistrement",
     tabsetPanel(
       tabPanel(
-        "Individuel",
+        "Scan QR",
+        fluidRow(
+          column(
+            12,
+            card(
+              card_header("Enregistrement par Scan QR", class = "card-header"),
+              card_body(
+                fluidRow(
+                  column(6,
+                    div(style = "text-align: center; margin-bottom: 20px;",
+                      h4("📱 Scanner Tablette"),
+                      actionBttn("scan_tablet_btn", "Scanner QR Tablette", 
+                                style = "fill", color = "success", size = "lg",
+                                icon = icon("qrcode")),
+                      br(), br(),
+                      textInput("reg_tab_num_qr", "Numéro tablette", placeholder = "Scanné automatiquement")
+                    )
+                  ),
+                  column(6,
+                    div(style = "text-align: center; margin-bottom: 20px;",
+                      h4("🔌 Scanner Chargeur"),
+                      actionBttn("scan_charger_btn", "Scanner QR Chargeur", 
+                                style = "fill", color = "primary", size = "lg",
+                                icon = icon("qrcode")),
+                      br(), br(),
+                      textInput("reg_charger_num_qr", "Numéro chargeur", placeholder = "Scanné automatiquement")
+                    )
+                  )
+                ),
+                fluidRow(
+                  column(12,
+                    div(style = "text-align: center; margin: 20px 0;",
+                      h4("🔋 Powerbank"),
+                      materialSwitch("reg_has_powerbank_qr", "Powerbank présent", status = "primary", width = "100%")
+                    )
+                  )
+                ),
+                fluidRow(
+                  column(12,
+                    div(style = "text-align: center;",
+                      actionBttn("register_qr_btn", "Enregistrer", 
+                                style = "fill", color = "primary", size = "lg",
+                                class = "blue-btn")
+                    )
+                  )
+                )
+              )
+            )
+          )
+        ),
+        fluidRow(
+          column(12,
+            card(
+              card_header("Tablettes enregistrées", class = "card-header"),
+              card_body(DTOutput("register_table"))
+            )
+          )
+        )
+      ),
+      tabPanel(
+        "Manuel",
         fluidRow(
           column(
             4,
             card(
-              card_header("Enregistrement individuel", class = "card-header"),
+              card_header("Enregistrement manuel", class = "card-header"),
               card_body(
-              textInput("reg_tab_num", "Numéro de la tablette"),
-              textInput("reg_charger_num", "Numéro de chargeur"),
+                textInput("reg_tab_num", "Numéro de la tablette"),
+                textInput("reg_charger_num", "Numéro de chargeur"),
                 materialSwitch("reg_has_powerbank", "Powerbank présent", status = "primary"),
                 div(style = "margin-top: 20px;",
                     actionBttn("register_btn", "Enregistrer", style = "fill", color = "primary", class = "blue-btn")
@@ -349,11 +341,11 @@ ui <- navbarPage(
             card(
               card_header("Enregistrement en masse", class = "card-header"),
               card_body(
-              fileInput(
-                "tablets_register_file",
-                "Liste des tablettes (Excel)",
-                accept = c(".xlsx", ".xls")
-              ),
+                fileInput(
+                  "tablets_register_file",
+                  "Liste des tablettes (Excel)",
+                  accept = c(".xlsx", ".xls")
+                ),
                 div(style = "margin-top: 20px;",
                     actionBttn("register_mass_btn", "Enregistrer en masse", style = "fill", color = "primary", class = "blue-btn")
                 )
@@ -383,23 +375,23 @@ ui <- navbarPage(
               card_body(
                 div(style = "margin-bottom: 15px;",
                     h5("Informations de la tablette", style = "color: var(--primary-color); font-weight: 600;"),
-              textInput("tab_num", "Numéro de la tablette"),
-              textInput("charger_num", "Numéro de chargeur"),
+                    textInput("tab_num", "Numéro de la tablette"),
+                    textInput("charger_num", "Numéro de chargeur"),
                     materialSwitch("has_powerbank", "Powerbank présent", status = "primary")
                 ),
                 div(style = "margin-bottom: 15px;",
                     h5("Informations de l'agent", style = "color: var(--primary-color); font-weight: 600;"),
                     textInput("agent_id", "ID de l'agent"),
                     textInput("agent_name", "Nom de l'agent"),
-              textInput("agent_group", "Groupe de l'agent"),
+                    textInput("agent_group", "Groupe de l'agent"),
                     selectInput("agent_function", "Fonction", choices = c("Enquêteur", "Superviseur")),
                     textInput("agent_phone", "Numéro de téléphone"),
                     textInput("agent_class", "Classe")
                 ),
                 div(style = "margin-bottom: 15px;",
                     h5("Informations du superviseur", style = "color: var(--primary-color); font-weight: 600;"),
-              textInput("supervisor_name", "Nom du superviseur"),
-              textInput("supervisor_num", "Numéro du superviseur"),
+                    textInput("supervisor_name", "Nom du superviseur"),
+                    textInput("supervisor_num", "Numéro du superviseur"),
                     dateInput("assign_date", "Date d'affectation")
                 ),
                 div(style = "margin-top: 20px;",
@@ -426,7 +418,7 @@ ui <- navbarPage(
               card_body(
                 div(style = "margin-bottom: 15px;",
                     h5("Fichiers requis", style = "color: var(--primary-color); font-weight: 600;"),
-              fileInput("agents_file", "Liste des agents (Excel)", accept = c(".xlsx", ".xls")),
+                    fileInput("agents_file", "Liste des agents (Excel)", accept = c(".xlsx", ".xls")),
                     fileInput("tablets_file", "Liste des tablettes (Excel)", accept = c(".xlsx", ".xls"))
                 ),
                 div(style = "margin-top: 20px;",
@@ -437,8 +429,36 @@ ui <- navbarPage(
           ),
           column(8, 
             card(
-              card_header("Affectations en masse", class = "card-header"),
-              card_body(DTOutput("mass_assign_table"))
+              card_header("Affectations en cours", class = "card-header"),
+              card_body(DTOutput("assign_table"))
+            )
+          )
+        )
+      )
+    )
+  ),
+  tabPanel(
+    "Génération de fiches",
+    fluidRow(
+      column(
+        12,
+        card(
+          card_header("Génération de fiches d'affectation", class = "card-header"),
+          card_body(
+            fluidRow(
+              column(6,
+                div(style = "margin-bottom: 20px;",
+                    h5("Sélection des affectations", style = "color: var(--primary-color); font-weight: 600;"),
+                    selectInput("fiche_assign_select", "Sélectionner une affectation", choices = NULL),
+                    actionBttn("generate_fiche_btn", "Générer la fiche", style = "fill", color = "success", class = "blue-btn")
+                )
+              ),
+              column(6,
+                div(style = "margin-bottom: 20px;",
+                    h5("Génération en masse", style = "color: var(--primary-color); font-weight: 600;"),
+                    actionBttn("generate_all_fiches_btn", "Générer toutes les fiches", style = "fill", color = "warning", class = "blue-btn")
+                )
+              )
             )
           )
         )
@@ -453,54 +473,42 @@ ui <- navbarPage(
         card(
           card_header("Retour de tablette", class = "card-header"),
           card_body(
-          textInput("return_tab_num", "Numéro de la tablette"),
-          textInput("return_agent", "Nom de l'agent"),
-          textInput("return_charger", "Numéro de chargeur"),
-          materialSwitch("return_powerbank", "Powerbank présent", status = "primary"),
+            div(style = "margin-bottom: 15px;",
+                h5("Vérification de l'identité", style = "color: var(--primary-color); font-weight: 600;"),
+                textInput("return_agent_id", "ID de l'agent enquêteur")
+            ),
+            div(style = "margin-bottom: 15px;",
+                h5("Tablette à retourner", style = "color: var(--primary-color); font-weight: 600;"),
+                selectInput("return_tablet_select", "Sélectionner la tablette", choices = NULL)
+            ),
+            div(style = "margin-bottom: 15px;",
+                h5("Équipements retournés", style = "color: var(--primary-color); font-weight: 600;"),
+                textInput("return_charger_num", "Numéro de chargeur retourné"),
+                div(style = "margin-top: 10px;",
+                    materialSwitch("return_has_powerbank", "Powerbank retourné", status = "primary"),
+                    div(style = "font-size: 0.8em; color: #666; margin-top: 5px;",
+                        textOutput("powerbank_info")
+                    )
+                )
+            ),
+            div(style = "margin-bottom: 15px;",
+                h5("Informations de retour", style = "color: var(--primary-color); font-weight: 600;"),
+                textInput("return_reason", "Motif du retour"),
+                selectInput("return_condition", "État de la tablette", 
+                           choices = c("Bon état", "Légèrement endommagée", "Endommagée", "Hors service")),
+                dateInput("return_date", "Date de retour", value = Sys.Date()),
+                textAreaInput("return_notes", "Notes supplémentaires", rows = 3)
+            ),
             div(style = "margin-top: 20px;",
-                actionBttn("return_btn", "Confirmer le retour", style = "fill", color = "primary", class = "blue-btn")
+                actionBttn("return_tablet_btn", "Enregistrer le retour", style = "fill", color = "warning", class = "blue-btn")
             )
           )
         )
       ),
-      column(8, 
+      column(8,
         card(
-          card_header("Retours enregistrés", class = "card-header"),
-          card_body(DTOutput("return_table"))
-        )
-      )
-    )
-  ),
-  tabPanel(
-    "Déclaration d'incident",
-    fluidRow(
-      column(
-        4,
-        card(
-          card_header("Déclaration d'incident", class = "card-header"),
-          card_body(
-            div(style = "margin-bottom: 15px;",
-                h5("Informations de l'incident", style = "color: var(--primary-color); font-weight: 600;"),
-          textInput("incident_tab", "Numéro de la tablette"),
-          selectInput("incident_type", "Type d'incident", choices = c("écran cassé", "perte", "autre")),
-          textAreaInput("incident_comment", "Commentaire"),
-                textInput("incident_agent", "Nom de l'agent")
-            ),
-            div(style = "margin-bottom: 15px;",
-                h5("État des accessoires", style = "color: var(--primary-color); font-weight: 600;"),
-          materialSwitch("incident_charger_ok", "Chargeur fonctionnel", value = TRUE, status = "primary"),
-                materialSwitch("incident_powerbank_ok", "Powerbank fonctionnel", value = TRUE, status = "primary")
-            ),
-            div(style = "margin-top: 20px;",
-                actionBttn("incident_btn", "Déclarer", style = "fill", color = "primary", class = "blue-btn")
-            )
-          )
-        )
-      ),
-      column(8, 
-        card(
-          card_header("Incidents déclarés", class = "card-header"),
-          card_body(DTOutput("incident_table"))
+          card_header("Historique des retours", class = "card-header"),
+          card_body(DTOutput("returns_table"))
         )
       )
     )
@@ -508,548 +516,712 @@ ui <- navbarPage(
   tabPanel(
     "Suivi des tablettes",
     fluidRow(
-      column(4, 
-        value_box(
-          title = "Stock disponible", 
-          value = textOutput("stock_txt"), 
-          showcase = icon("warehouse", class = "fa-2x"),
-          theme = "primary"
-        )
-      ),
-      column(4,
-        value_box(
-          title = "Tablettes affectées", 
-          value = textOutput("assigned_txt"), 
-          showcase = icon("users", class = "fa-2x"),
-          theme = "success"
-        )
-      ),
-      column(4,
-        value_box(
-          title = "Incidents déclarés", 
-          value = textOutput("incident_txt"), 
-          showcase = icon("exclamation-triangle", class = "fa-2x"),
-          theme = "warning"
+      column(
+        12,
+        card(
+          card_header("État général des tablettes", class = "card-header"),
+          card_body(
+            fluidRow(
+              column(3,
+                div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border-radius: 10px; color: white;",
+                    h3(textOutput("available_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
+                    p("Tablettes disponibles", style = "margin: 5px 0 0 0;")
+                )
+              ),
+              column(3,
+                div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); border-radius: 10px; color: white;",
+                    h3(textOutput("assigned_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
+                    p("Tablettes affectées", style = "margin: 5px 0 0 0;")
+                )
+              ),
+              column(3,
+                div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); border-radius: 10px; color: white;",
+                    h3(textOutput("returned_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
+                    p("Tablettes en retour", style = "margin: 5px 0 0 0;")
+                )
+              ),
+              column(3,
+                div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 10px; color: white;",
+                    h3(textOutput("out_of_service_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
+                    p("Tablettes hors service", style = "margin: 5px 0 0 0;")
+                )
+              )
+            )
+          )
         )
       )
     ),
-    card(
-      card_header("Inventaire complet des tablettes", class = "card-header"),
-      card_body(DTOutput("dashboard_table"))
-    )
-  ),
-  tabPanel(
-    "Fiches d'affectation",
     fluidRow(
-      column(12,
+      column(
+        12,
         card(
-          card_header("Gestion des fiches d'affectation", class = "card-header"),
+          card_header("Tableau de suivi détaillé", class = "card-header"),
           card_body(
-            div(style = "margin-bottom: 20px;",
-                h5("Générer une fiche d'affectation", style = "color: var(--primary-color); font-weight: 600;"),
-                selectInput("fiche_agent", "Sélectionner l'agent", choices = NULL),
-                div(style = "margin-top: 15px;",
-                    actionBttn("generate_fiche_btn", "Générer la fiche", style = "fill", color = "primary", class = "blue-btn")
-                )
-            ),
-            div(style = "margin-top: 20px;",
-                h5("Fiches générées", style = "color: var(--primary-color); font-weight: 600;"),
-                DTOutput("fiches_table")
+            fluidRow(
+              column(12,
+                div(style = "margin-bottom: 15px;",
+                    h5("Filtres", style = "color: var(--primary-color); font-weight: 600;"),
+                    fluidRow(
+                      column(3, selectInput("status_filter", "Statut", choices = c("Tous", "Disponible", "Affectée", "En retour", "Hors service"))),
+                      column(3, selectInput("group_filter", "Groupe", choices = c("Tous"))),
+                      column(3, selectInput("function_filter", "Fonction", choices = c("Tous", "Enquêteur", "Superviseur"))),
+                      column(3, actionBttn("apply_filters_btn", "Appliquer les filtres", style = "fill", color = "primary", class = "blue-btn"))
+                    )
+                  )
+                ),
+                DTOutput("tracking_table")
+              )
             )
           )
         )
       )
     )
   )
-)
 
-
-# Fonction pour générer une fiche d'affectation
-generate_affectation_fiche <- function(assign_data) {
-  library(xml2)
-
-  template_path <- "Fiche_Affectation_Materiel.docx"
-  tmp_dir <- tempfile()
-  dir.create(tmp_dir)
-  unzip(template_path, exdir = tmp_dir)
-
-  doc_xml <- file.path(tmp_dir, "word", "document.xml")
-  xml_txt <- readLines(doc_xml, encoding = "UTF-8", warn = FALSE)
-  xml_txt <- paste(xml_txt, collapse = "\n")
-
-  vars <- list(
-    "{{groupe}}" = assign_data$groupe,
-    "{{agent}}" = assign_data$agent,
-    "{{fonction}}" = assign_data$fonction,
-    "{{telephone}}" = assign_data$telephone,
-    "{{tablette}}" = assign_data$tablette,
-    "{{chargeur}}" = assign_data$chargeur,
-    "{{superviseur}}" = assign_data$superviseur,
-    "{{numero_superviseur}}" = assign_data$numero_superviseur,
-    "{{date}}" = assign_data$date
-  )
-
-  for (v in names(vars)) {
-    # Replace placeholders that may have been split by Word tags
-    name <- gsub("[{}]", "", v)
-    pattern <- paste0("\\{\\{[^\\{\\}]*", name, "[^\\{\\}]*\\}\\}")
-    xml_txt <- gsub(pattern, vars[[v]], xml_txt, perl = TRUE)
-    xml_txt <- gsub(v, vars[[v]], xml_txt, fixed = TRUE)
-  }
-
-  writeLines(xml_txt, doc_xml, useBytes = TRUE)
-
-  filename <- paste0("Fiche_", assign_data$agent, "_", assign_data$tablette, "_", Sys.Date(), ".docx")
-  old_wd <- getwd()
-  setwd(tmp_dir)
-  utils::zip(zipfile = file.path(old_wd, filename), files = list.files(".", recursive = TRUE))
-  setwd(old_wd)
-
-  unlink(tmp_dir, recursive = TRUE)
-  return(filename)
-}
-
+# Serveur
 server <- function(input, output, session) {
-  # Liste des tablettes enregistr\u00e9es
-  registered <- reactiveVal(
-    data.frame(
-      tablette = character(),
-      chargeur = character(),
-      powerbank = character(),
-      etat = character(),
-      stringsAsFactors = FALSE
-    )
-  )
-  # Table des affectations individuelles
-  assignments <- reactiveVal(
-    data.frame(
-      tablette = character(),
-      chargeur = character(),
-      powerbank = character(),
-      groupe = character(),
-      agent = character(),
-      fonction = character(),
-      telephone = character(),
-      classe = character(),
-      id_agent = character(),
-      superviseur = character(),
-      numero_superviseur = character(),
-      date = character(),
-      stringsAsFactors = FALSE
-    )
-  )
-  # Table des affectations en masse
-  mass_assignments <- reactiveVal(data.frame())
-  # Table des retours de tablettes
-  returns <- reactiveVal(
-    data.frame(
-      tablette = character(),
-      chargeur = character(),
-      powerbank = character(),
-      agent = character(),
-      date_retour = character(),
-      stringsAsFactors = FALSE
-    )
-  )
-  # Table des incidents d\u00e9clar\u00e9s
-  incidents <- reactiveVal(
-    data.frame(
-      tablette = character(),
-      type = character(),
-      commentaire = character(),
-      agent = character(),
-      chargeur_ok = character(),
-      powerbank_ok = character(),
-      date = character(),
-      stringsAsFactors = FALSE
-    )
-  )
   
-  # Table des fiches d'affectation générées
-  fiches <- reactiveVal(
-    data.frame(
-      agent = character(),
-      tablette = character(),
-      date_generation = character(),
-      fichier = character(),
-      stringsAsFactors = FALSE
-    )
-  )
-
-  # Valeurs temporaires pour la gestion des retours avec accessoires manquants
-  vals <- reactiveValues(pending_return = NULL)
-
-  finalize_return <- function(tab_num, charger_num, has_powerbank, agent) {
-    new_entry <- data.frame(
-      tablette = tab_num,
-      chargeur = charger_num,
-      powerbank = ifelse(has_powerbank, "Oui", "Non"),
-      agent = agent,
-      date_retour = Sys.Date(),
-      stringsAsFactors = FALSE
-    )
-    returns(rbind(returns(), new_entry))
-    current <- registered()
-    row <- which(current$tablette == tab_num)
-    current$etat[row] <- "en stock"
-    if (length(row) == 1) {
-      if (current$chargeur[row] != "endommag\u00e9") {
-        current$chargeur[row] <- charger_num
-      }
-      current$powerbank[row] <- ifelse(has_powerbank, "Oui", "Non")
-    }
-    registered(current)
-    updateTextInput(session, "return_tab_num", value = "")
-    updateTextInput(session, "return_agent", value = "")
-    updateTextInput(session, "return_charger", value = "")
-    updateCheckboxInput(session, "return_powerbank", value = FALSE)
-    vals$pending_return <- NULL
-  }
-
-  # Enregistrement manuel d'une tablette
+  # Données réactives
+  registered_tablets <- reactiveVal(data.frame(
+    tablette = character(),
+    chargeur = character(),
+    powerbank = logical(),
+    registration_date = character(),
+    etat = character(),
+    stringsAsFactors = FALSE
+  ))
+  
+  assignments <- reactiveVal(data.frame(
+    tablette = character(),
+    chargeur = character(),
+    powerbank = logical(),
+    agent_id = character(),
+    agent_name = character(),
+    agent_group = character(),
+    agent_function = character(),
+    agent_phone = character(),
+    agent_class = character(),
+    supervisor_name = character(),
+    supervisor_num = character(),
+    assign_date = character(),
+    stringsAsFactors = FALSE
+  ))
+  
+  # Nouvelles données réactives pour retour et suivi
+  tablet_returns <- reactiveVal(data.frame(
+    tablette = character(),
+    agent_name = character(),
+    return_reason = character(),
+    return_condition = character(),
+    return_date = character(),
+    return_notes = character(),
+    stringsAsFactors = FALSE
+  ))
+  
+  tablet_status <- reactiveVal(data.frame(
+    tablette = character(),
+    status = character(),
+    current_agent = character(),
+    assign_date = character(),
+    return_date = character(),
+    condition = character(),
+    stringsAsFactors = FALSE
+  ))
+  
+  # Observateurs pour les boutons de scan QR
+  observeEvent(input$scan_tablet_btn, {
+    print("=== BOUTON SCAN TABLETTE CLIQUÉ ===")
+    print("Déclenchement du scan QR côté client...")
+    runjs("alert('Test scan tablette - Fonctionnalité en développement');")
+  })
+  
+  observeEvent(input$scan_charger_btn, {
+    print("=== BOUTON SCAN CHARGEUR CLIQUÉ ===")
+    print("Déclenchement du scan QR côté client...")
+    runjs("alert('Test scan chargeur - Fonctionnalité en développement');")
+  })
+  
+  # Enregistrement manuel
   observeEvent(input$register_btn, {
-    new_entry <- data.frame(
+    req(input$reg_tab_num, input$reg_charger_num)
+    
+    new_tablet <- data.frame(
       tablette = input$reg_tab_num,
       chargeur = input$reg_charger_num,
-      powerbank = ifelse(input$reg_has_powerbank, "Oui", "Non"),
-      etat = "en stock",
+      powerbank = input$reg_has_powerbank,
+      registration_date = as.character(Sys.Date()),
+      etat = "En stock",
       stringsAsFactors = FALSE
     )
-    registered(rbind(registered(), new_entry))
-    showNotification("Tablette enregistr\u00e9e avec succ\u00e8s", type = "message")
+    
+    current_tablets <- registered_tablets()
+    updated_tablets <- rbind(current_tablets, new_tablet)
+    registered_tablets(updated_tablets)
+    
+    # Réinitialiser les champs
     updateTextInput(session, "reg_tab_num", value = "")
     updateTextInput(session, "reg_charger_num", value = "")
-    updateCheckboxInput(session, "reg_has_powerbank", value = FALSE)
+    updateMaterialSwitch(session, "reg_has_powerbank", value = FALSE)
+    
+    showNotification("Tablette enregistrée avec succès!", type = "default")
   })
-
-  # Enregistrement en masse des tablettes via fichier Excel
+  
+  # Enregistrement en masse
   observeEvent(input$register_mass_btn, {
     req(input$tablets_register_file)
-    tablets <- read_excel(input$tablets_register_file$datapath, col_types = "text")
-    if (!"etat" %in% names(tablets)) {
-      tablets$etat <- "en stock"
-    }
-    if ("powerbank" %in% names(tablets)) {
-      tablets$powerbank <- ifelse(tablets$powerbank %in% c("TRUE", "1", "Oui", "yes", "YES", "oui"), "Oui", "Non")
-    }
-    registered(rbind(registered(), tablets))
-    shinyjs::reset("tablets_register_file")
+    
+    tryCatch({
+      data <- read_excel(input$tablets_register_file$datapath)
+      # Conversion 'vrai'/'faux' en logique
+      if (is.character(data$powerbank)) {
+        data$powerbank <- tolower(data$powerbank)
+        data$powerbank <- ifelse(data$powerbank %in% c('vrai', 'true'), TRUE, FALSE)
+      }
+      new_tablets <- data.frame(
+        tablette = data$tablette,
+        chargeur = data$chargeur,
+        powerbank = data$powerbank,
+        registration_date = as.character(Sys.Date()),
+        etat = rep("En stock", nrow(data)),
+        stringsAsFactors = FALSE
+      )
+      
+      current_tablets <- registered_tablets()
+      updated_tablets <- rbind(current_tablets, new_tablets)
+      registered_tablets(updated_tablets)
+      
+      # Réinitialiser le champ de fichier
+      reset("tablets_register_file")
+      
+      showNotification(paste(nrow(new_tablets), "tablettes enregistrées avec succès!"), type = "default")
+    }, error = function(e) {
+      showNotification("Erreur lors de l'enregistrement en masse", type = "error")
+    })
   })
-
-  output$register_table <- renderDT(registered())
-
+  
+  # Affectation individuelle
   observeEvent(input$assign_btn, {
-    # V\u00e9rifie que la tablette est enregistr\u00e9e avant l'affectation
-    if (!(input$tab_num %in% registered()$tablette)) {
-      showNotification("Tablette non enregistr\u00e9e", type = "error")
+    req(input$tab_num, input$agent_name, input$supervisor_name)
+    
+    # Vérifier que la tablette est en stock
+    current_tablets <- registered_tablets()
+    idx <- which(current_tablets$tablette == input$tab_num)
+    if (length(idx) == 0 || current_tablets$etat[idx] != "En stock") {
+      showNotification("La tablette n'est pas en stock et ne peut pas être affectée.", type = "error")
       return()
     }
-
-    current <- registered()
-    tab_row <- which(current$tablette == input$tab_num)
-    if (current$etat[tab_row] != "en stock") {
-      showNotification("Tablette non disponible", type = "error")
-      return()
-    }
-
-    if (current$chargeur[tab_row] != input$charger_num) {
-      showNotification("Num\u00e9ro de chargeur incorrect", type = "error")
-      return()
-    }
-
-    expected_pb <- current$powerbank[tab_row] == "Oui"
-    if (expected_pb != input$has_powerbank) {
-      showNotification("Powerbank non conforme", type = "error")
-      return()
-    }
-
-    new_entry <- data.frame(
+    new_assignment <- data.frame(
       tablette = input$tab_num,
       chargeur = input$charger_num,
-      powerbank = ifelse(input$has_powerbank, "Oui", "Non"),
-      groupe = input$agent_group,
-      agent = trimws(input$agent_name),
-      fonction = input$agent_function,
-      telephone = input$agent_phone,
-      classe = input$agent_class,
-      id_agent = input$agent_id,
-      superviseur = input$supervisor_name,
-      numero_superviseur = input$supervisor_num,
-      date = as.character(input$assign_date),
+      powerbank = input$has_powerbank,
+      agent_id = input$agent_id,
+      agent_name = input$agent_name,
+      agent_group = input$agent_group,
+      agent_function = input$agent_function,
+      agent_phone = input$agent_phone,
+      agent_class = input$agent_class,
+      supervisor_name = input$supervisor_name,
+      supervisor_num = input$supervisor_num,
+      assign_date = as.character(input$assign_date),
       stringsAsFactors = FALSE
     )
-    assignments(rbind(assignments(), new_entry))
-    current$etat[current$tablette == input$tab_num] <- "affect\u00e9"
-    registered(current)
-    showNotification("Tablette affect\u00e9e avec succ\u00e8s", type = "message")
+    
+    current_assignments <- assignments()
+    updated_assignments <- rbind(current_assignments, new_assignment)
+    assignments(updated_assignments)
+    
+    # Mettre à jour l'état de la tablette à "Affectée"
+    current_tablets$etat[idx] <- "Affectée"
+    registered_tablets(current_tablets)
+    
+    # Réinitialiser les champs
     updateTextInput(session, "tab_num", value = "")
     updateTextInput(session, "charger_num", value = "")
-    updateCheckboxInput(session, "has_powerbank", value = FALSE)
-    updateTextInput(session, "agent_group", value = "")
+    updateMaterialSwitch(session, "has_powerbank", value = FALSE)
     updateTextInput(session, "agent_id", value = "")
     updateTextInput(session, "agent_name", value = "")
+    updateTextInput(session, "agent_group", value = "")
     updateSelectInput(session, "agent_function", selected = "Enquêteur")
     updateTextInput(session, "agent_phone", value = "")
     updateTextInput(session, "agent_class", value = "")
     updateTextInput(session, "supervisor_name", value = "")
     updateTextInput(session, "supervisor_num", value = "")
     updateDateInput(session, "assign_date", value = Sys.Date())
+    
+    showNotification("Affectation créée avec succès!", type = "default")
   })
-
-  output$assign_table <- renderDT(assignments())
-
+  
+  # Affectation en masse
   observeEvent(input$mass_assign_btn, {
     req(input$agents_file, input$tablets_file)
-    agents <- read_excel(input$agents_file$datapath, col_types = "text")
-    tablets <- read_excel(input$tablets_file$datapath, col_types = "text")
-
-    # V\u00e9rifie que toutes les tablettes du fichier sont enregistr\u00e9es
-    not_registered <- setdiff(tablets$tablette, registered()$tablette)
-    if (length(not_registered) > 0) {
-      showNotification(
-        "Certaines tablettes ne sont pas enregistr\u00e9es",
-        type = "error"
+    tryCatch({
+      agents_data <- read_excel(input$agents_file$datapath)
+      tablets_data <- read_excel(input$tablets_file$datapath)
+      if (is.character(tablets_data$powerbank)) {
+        tablets_data$powerbank <- tolower(tablets_data$powerbank)
+        tablets_data$powerbank <- ifelse(tablets_data$powerbank %in% c('vrai', 'true'), TRUE, FALSE)
+      }
+      # Filtrer les tablettes en stock
+      current_tablets <- registered_tablets()
+      tablets_data <- tablets_data[tablets_data$tablette %in% current_tablets$tablette & current_tablets$etat[match(tablets_data$tablette, current_tablets$tablette)] == "En stock", ]
+      n_agents <- nrow(agents_data)
+      n_tablets <- nrow(tablets_data)
+      if (n_tablets > n_agents) {
+        showNotification("Plus de tablettes que d'agents disponibles", type = "warning")
+        return()
+      }
+      shuffled_tablets <- tablets_data[sample(n_tablets), ]
+      new_assignments <- data.frame(
+        tablette = shuffled_tablets$tablette,
+        chargeur = shuffled_tablets$chargeur,
+        powerbank = shuffled_tablets$powerbank,
+        agent_id = agents_data$id_agent[1:n_tablets],
+        agent_name = agents_data$agent[1:n_tablets],
+        agent_group = agents_data$groupe[1:n_tablets],
+        agent_function = agents_data$fonction[1:n_tablets],
+        agent_phone = agents_data$telephone[1:n_tablets],
+        agent_class = agents_data$classe[1:n_tablets],
+        supervisor_name = agents_data$superviseur[1:n_tablets],
+        supervisor_num = agents_data$numero_superviseur[1:n_tablets],
+        assign_date = as.character(Sys.Date()),
+        stringsAsFactors = FALSE
       )
-      return()
-    }
-
-    n <- min(nrow(agents), nrow(tablets))
-    shuffled <- sample(n)
-    result <- cbind(agents[seq_len(n), ], tablets[shuffled, ])
-    if ("powerbank" %in% names(result)) {
-      result$powerbank <- ifelse(result$powerbank, "Oui", "Non")
-    }
-    mass_assignments(result)
-    if (!"date" %in% names(result)) {
-      result$date <- as.character(Sys.Date())
-    }
-    # Ajouter les colonnes manquantes avec NA
-    for (col in setdiff(names(assignments()), names(result))) {
-      result[[col]] <- NA
-    }
-    # Réordonner les colonnes
-    result <- result[, names(assignments()), drop = FALSE]
-    assignments(rbind(assignments(), result))
-    current <- registered()
-    current$etat[current$tablette %in% result$tablette] <- "affect\u00e9"
-    registered(current)
-    shinyjs::reset("agents_file")
-    shinyjs::reset("tablets_file")
+      current_assignments <- assignments()
+      updated_assignments <- rbind(current_assignments, new_assignments)
+      assignments(updated_assignments)
+      # Mettre à jour l'état des tablettes à "Affectée"
+      idxs <- match(shuffled_tablets$tablette, current_tablets$tablette)
+      current_tablets$etat[idxs] <- "Affectée"
+      registered_tablets(current_tablets)
+      
+      # Réinitialiser les champs de fichiers
+      reset("agents_file")
+      reset("tablets_file")
+      
+      showNotification(paste(nrow(new_assignments), "affectations créées avec succès!"), type = "default")
+    }, error = function(e) {
+      showNotification("Erreur lors de l'affectation en masse", type = "error")
+    })
   })
-
-  output$mass_assign_table <- renderDT(mass_assignments())
-
-  observeEvent(input$return_btn, {
-    if (!(input$return_tab_num %in% registered()$tablette)) {
-      showNotification("Tablette non enregistr\u00e9e", type = "error")
+  
+  # Mise à jour des choix pour la génération de fiches
+  observe({
+    current_assignments <- assignments()
+    if (nrow(current_assignments) > 0) {
+      choices <- paste(current_assignments$agent_name, "-", current_assignments$tablette)
+      updateSelectInput(session, "fiche_assign_select", choices = choices)
+    }
+  })
+  
+  # Génération de fiche individuelle
+  observeEvent(input$generate_fiche_btn, {
+    req(input$fiche_assign_select)
+    
+    current_assignments <- assignments()
+    selected_index <- which(paste(current_assignments$agent_name, "-", current_assignments$tablette) == input$fiche_assign_select)
+    
+    if (length(selected_index) > 0) {
+      assign_data <- current_assignments[selected_index, ]
+      
+      tryCatch({
+        filename <- generate_affectation_fiche(assign_data)
+        showNotification(paste("Fiche générée:", filename), type = "default")
+      }, error = function(e) {
+        showNotification("Erreur lors de la génération de la fiche", type = "error")
+      })
+    }
+  })
+  
+  # Génération de toutes les fiches
+  observeEvent(input$generate_all_fiches_btn, {
+    current_assignments <- assignments()
+    
+    if (nrow(current_assignments) == 0) {
+      showNotification("Aucune affectation à traiter", type = "warning")
       return()
     }
-
-    current <- registered()
-    tab_row <- which(current$tablette == input$return_tab_num)
-    if (length(tab_row) == 0 || current$etat[tab_row] != "affect\u00e9") {
-      showNotification("Tablette non affect\u00e9e", type = "error")
-      return()
+    
+    tryCatch({
+      for (i in 1:nrow(current_assignments)) {
+        assign_data <- current_assignments[i, ]
+        generate_affectation_fiche(assign_data)
+      }
+      showNotification(paste(nrow(current_assignments), "fiches générées avec succès!"), type = "default")
+    }, error = function(e) {
+      showNotification("Erreur lors de la génération des fiches", type = "error")
+    })
+  })
+  
+  # Observateur pour mettre à jour les choix de tablettes affectées et le powerbank
+  observe({
+    current_assignments <- assignments()
+    if (nrow(current_assignments) > 0) {
+      choices <- paste(current_assignments$tablette, "-", current_assignments$agent_name)
+      updateSelectInput(session, "return_tablet_select", choices = choices)
+    } else {
+      updateSelectInput(session, "return_tablet_select", choices = "Aucune tablette affectée")
     }
-
-    assign_row <- assignments()[assignments()$tablette == input$return_tab_num, ]
-    if (nrow(assign_row) == 0) {
-      showNotification("Tablette non affect\u00e9e", type = "error")
-      return()
+  })
+  
+  # Observateur pour mettre à jour le powerbank selon la tablette sélectionnée
+  observeEvent(input$return_tablet_select, {
+    req(input$return_tablet_select)
+    
+    current_assignments <- assignments()
+    if (nrow(current_assignments) > 0) {
+      # Extraire le numéro de tablette de la sélection
+      tablet_num <- strsplit(input$return_tablet_select, " - ")[[1]][1]
+      
+      # Trouver l'affectation de cette tablette
+      tablet_idx <- which(current_assignments$tablette == tablet_num)
+      
+      if (length(tablet_idx) > 0) {
+        assignment <- current_assignments[tablet_idx[1], ]
+        
+        # Mettre à jour le powerbank selon l'affectation
+        updateMaterialSwitch(session, "return_has_powerbank", value = assignment$powerbank)
+        
+        # Désactiver/activer le powerbank selon l'affectation
+        if (assignment$powerbank) {
+          # Si affecté avec powerbank, permettre de le décocher
+          shinyjs::enable("return_has_powerbank")
+        } else {
+          # Si affecté sans powerbank, désactiver la case
+          shinyjs::disable("return_has_powerbank")
+        }
+        
+        # Mettre à jour le chargeur
+        updateTextInput(session, "return_charger_num", value = assignment$chargeur)
+      }
     }
-
-    if (trimws(assign_row$agent) != trimws(input$return_agent)) {
-      showNotification(paste(input$return_agent, "n'est pas le responsable de cette tablette, il ne peut donc pas la retourner."), type = "error")
-      return()
+  })
+  
+  # Output pour afficher l'information sur le powerbank
+  output$powerbank_info <- renderText({
+    req(input$return_tablet_select)
+    
+    current_assignments <- assignments()
+    if (nrow(current_assignments) > 0) {
+      tablet_num <- strsplit(input$return_tablet_select, " - ")[[1]][1]
+      tablet_idx <- which(current_assignments$tablette == tablet_num)
+      
+      if (length(tablet_idx) > 0) {
+        assignment <- current_assignments[tablet_idx[1], ]
+        if (assignment$powerbank) {
+          "ℹ️ Cette tablette a été affectée avec un powerbank (vous pouvez le décocher si perdu)"
+        } else {
+          "ℹ️ Cette tablette a été affectée sans powerbank (case désactivée)"
+        }
+      } else {
+        ""
+      }
+    } else {
+      ""
     }
-
-    pb_expected <- assign_row$powerbank == "Oui"
-    charger_expected <- assign_row$chargeur
-    pb_missing <- pb_expected && !input$return_powerbank
-    charger_mismatch <- charger_expected != input$return_charger
-
-    if (pb_missing || charger_mismatch) {
-      vals$pending_return <- list(
-        tab_num = input$return_tab_num,
-        agent = trimws(input$return_agent),
-        return_charger = input$return_charger,
-        return_powerbank = input$return_powerbank,
-        expected_charger = charger_expected,
-        expected_powerbank = pb_expected
+  })
+  
+  # Fonction pour traiter le retour de tablette
+  process_tablet_return <- function(assignment, input_data) {
+    # Créer l'enregistrement de retour
+    new_return <- data.frame(
+      tablette = assignment$tablette,
+      agent_id = assignment$agent_id,
+      agent_name = assignment$agent_name,
+      charger_retourne = input_data$return_charger_num,
+      powerbank_retourne = input_data$return_has_powerbank,
+      return_reason = input_data$return_reason,
+      return_condition = input_data$return_condition,
+      return_date = as.character(input_data$return_date),
+      return_notes = input_data$return_notes,
+      stringsAsFactors = FALSE
+    )
+    
+    # Ajouter au tableau des retours
+    current_returns <- tablet_returns()
+    updated_returns <- rbind(current_returns, new_return)
+    tablet_returns(updated_returns)
+    
+    # Mettre à jour l'état de la tablette selon la condition de retour
+    current_tablets <- registered_tablets()
+    tablet_idx <- which(current_tablets$tablette == assignment$tablette)
+    
+    if (length(tablet_idx) > 0) {
+      # Déterminer le nouvel état selon la condition de retour
+      new_state <- switch(input_data$return_condition,
+        "Bon état" = "En stock",
+        "Légèrement endommagée" = "En réparation",
+        "Endommagée" = "En réparation",
+        "Hors service" = "Hors service",
+        "En stock"  # par défaut
       )
+      
+      current_tablets$etat[tablet_idx] <- new_state
+      registered_tablets(current_tablets)
+    }
+    
+    # Supprimer l'affectation
+    current_assignments <- assignments()
+    assignment_idx <- which(current_assignments$tablette == assignment$tablette)
+    if (length(assignment_idx) > 0) {
+      updated_assignments <- current_assignments[-assignment_idx, ]
+      assignments(updated_assignments)
+    }
+    
+    # Réinitialiser les champs
+    updateTextInput(session, "return_agent_id", value = "")
+    updateSelectInput(session, "return_tablet_select", selected = "")
+    updateTextInput(session, "return_charger_num", value = "")
+    updateMaterialSwitch(session, "return_has_powerbank", value = FALSE)
+    updateTextInput(session, "return_reason", value = "")
+    updateSelectInput(session, "return_condition", selected = "Bon état")
+    updateDateInput(session, "return_date", value = Sys.Date())
+    updateTextAreaInput(session, "return_notes", value = "")
+    
+    showNotification("Retour de tablette enregistré avec succès!", type = "default")
+  }
+  
+  # Observateur pour le retour de tablette
+  observeEvent(input$return_tablet_btn, {
+    req(input$return_agent_id, input$return_tablet_select)
+    
+    # Vérifier que l'agent existe et a une tablette affectée
+    current_assignments <- assignments()
+    if (nrow(current_assignments) == 0) {
+      showNotification("Aucune affectation trouvée", type = "error")
+      return()
+    }
+    
+    # Extraire le numéro de tablette de la sélection
+    tablet_num <- strsplit(input$return_tablet_select, " - ")[[1]][1]
+    
+    # Trouver l'affectation de cette tablette
+    tablet_idx <- which(current_assignments$tablette == tablet_num)
+    
+    if (length(tablet_idx) == 0) {
+      showNotification("Tablette non trouvée dans les affectations", type = "error")
+      return()
+    }
+    
+    assignment <- current_assignments[tablet_idx[1], ]
+    
+    # Vérifier que l'agent correspond
+    if (assignment$agent_id != input$return_agent_id) {
+      showNotification("L'ID de l'agent ne correspond pas à l'affectation", type = "error")
+      return()
+    }
+    
+    # Vérification de sécurité pour le chargeur uniquement
+    charger_mismatch <- assignment$chargeur != input$return_charger_num
+    
+    # Si il y a une différence de chargeur, demander confirmation
+    if (charger_mismatch) {
+      # Créer une modal pour les questions
       showModal(modalDialog(
-        title = "Accessoires manquants",
-        if (charger_mismatch) tagList(
-          p("Ce chargeur n'est pas initialement affect\u00e9 avec cette tablette"),
-          checkboxInput("lost_charger", "Avez-vous endommag\u00e9 ou perdu le chargeur initial ?", FALSE)
+        title = "Chargeur manquant",
+        "Attention: Le chargeur retourné ne correspond pas à celui affecté",
+        br(), br(),
+        div(
+          h6("Chargeur manquant:"),
+          radioButtons("charger_lost", "Avez-vous perdu ou endommagé le chargeur?",
+                      choices = c("Non", "Oui"), selected = "Non")
         ),
-        if (pb_missing) checkboxInput("lost_powerbank", "Avez-vous endommag\u00e9 ou perdu la powerbank ?", FALSE),
-        footer = tagList(modalButton("Annuler"), actionButton("confirm_missing", "Confirmer", class = "btn-primary blue-btn"))
+        footer = tagList(
+          modalButton("Annuler"),
+          actionButton("confirm_return", "Confirmer le retour", class = "btn-warning")
+        ),
+        size = "m"
       ))
       return()
     }
-
-    finalize_return(input$return_tab_num, input$return_charger, input$return_powerbank, trimws(input$return_agent))
+    
+    # Si tout est correct, procéder au retour
+    process_tablet_return(assignment, input)
   })
-
-  observeEvent(input$confirm_missing, {
-    req(vals$pending_return)
+  
+  # Observateur pour la confirmation du retour avec chargeur manquant
+  observeEvent(input$confirm_return, {
+    req(input$return_agent_id)
+    
+    current_assignments <- assignments()
+    agent_idx <- which(current_assignments$agent_id == input$return_agent_id)
+    
+    if (length(agent_idx) == 0) {
+      showNotification("Erreur: affectation non trouvée", type = "error")
+      removeModal()
+      return()
+    }
+    
+    assignment <- current_assignments[agent_idx[1], ]
+    
+    # Ajouter les informations sur le chargeur manquant
+    notes <- input$return_notes
+    if (assignment$chargeur != input$return_charger_num) {
+      charger_status <- ifelse(input$charger_lost == "Oui", "perdu/endommagé", "non retourné")
+      notes <- paste(notes, paste0("Chargeur ", charger_status, "."), sep = " ")
+    }
+    
+    # Créer un objet input modifié
+    modified_input <- list(
+      return_charger_num = input$return_charger_num,
+      return_has_powerbank = input$return_has_powerbank,
+      return_reason = input$return_reason,
+      return_condition = input$return_condition,
+      return_date = input$return_date,
+      return_notes = notes
+    )
+    
+    # Traiter le retour
+    process_tablet_return(assignment, modified_input)
     removeModal()
-    params <- vals$pending_return
-
-    pb_missing <- params$expected_powerbank && !params$return_powerbank
-    charger_mismatch <- params$expected_charger != params$return_charger
-
-    if ((charger_mismatch && !isTruthy(input$lost_charger)) || (pb_missing && !isTruthy(input$lost_powerbank))) {
-      showNotification("Retour annul\u00e9: accessoires manquants", type = "error")
-      vals$pending_return <- NULL
-      return()
-    }
-
-    current <- registered()
-    tab_row <- which(current$tablette == params$tab_num)
-    if (charger_mismatch && isTruthy(input$lost_charger)) {
-      current$chargeur[tab_row] <- "endommag\u00e9"
-    }
-    if (pb_missing && isTruthy(input$lost_powerbank)) {
-      current$powerbank[tab_row] <- "Non"
-    }
-    registered(current)
-
-    finalize_return(params$tab_num, params$return_charger, params$return_powerbank, params$agent)
   })
-
-  output$return_table <- renderDT(returns())
-
-  observeEvent(input$incident_btn, {
-    if (!(input$incident_tab %in% registered()$tablette)) {
-      showNotification("Tablette non enregistr\u00e9e", type = "error")
-      return()
-    }
-
-    assign_row <- assignments()[assignments()$tablette == input$incident_tab, ]
-    if (nrow(assign_row) == 0 || trimws(assign_row$agent) != trimws(input$incident_agent)) {
-      showNotification("Cet agent n'est pas responsable de cette tablette", type = "error")
-      return()
-    }
-
-    new_entry <- data.frame(
-      tablette = input$incident_tab,
-      type = input$incident_type,
-      commentaire = input$incident_comment,
-      agent = trimws(input$incident_agent),
-      chargeur_ok = ifelse(input$incident_charger_ok, "Oui", "Non"),
-      powerbank_ok = ifelse(input$incident_powerbank_ok, "Oui", "Non"),
-      date = Sys.Date(),
-      stringsAsFactors = FALSE
-    )
-    incidents(rbind(incidents(), new_entry))
-    current <- registered()
-    row <- which(current$tablette == input$incident_tab)
-    current$etat[row] <- "endommag\u00e9"
-    if (!input$incident_charger_ok) {
-      current$chargeur[row] <- "endommag\u00e9"
-    }
-    if (!input$incident_powerbank_ok) {
-      current$powerbank[row] <- "Non"
-    }
-    registered(current)
-
-    updateTextInput(session, "incident_tab", value = "")
-    updateTextInput(session, "incident_comment", value = "")
-    updateTextInput(session, "incident_agent", value = "")
-    updateSelectInput(session, "incident_type", selected = "\u00e9cran cass\u00e9")
-    updateCheckboxInput(session, "incident_charger_ok", value = TRUE)
-    updateCheckboxInput(session, "incident_powerbank_ok", value = TRUE)
-  })
-
-  output$incident_table <- renderDT(incidents())
-
-  # Mise à jour des choix d'agents pour les fiches
+  
+  # Observateur pour mettre à jour le statut des tablettes (tableau de suivi)
   observe({
-    if (nrow(assignments()) > 0) {
-      agent_choices <- unique(paste(assignments()$agent, "-", assignments()$tablette))
-      updateSelectInput(session, "fiche_agent", choices = c("", agent_choices))
+    reg_data <- registered_tablets()
+    assign_data <- assignments()
+    returns_data <- tablet_returns()
+    if (nrow(reg_data) > 0) {
+      suivi <- reg_data
+      suivi$status <- reg_data$etat
+      suivi$current_agent <- ""
+      suivi$assign_date <- ""
+      suivi$return_date <- ""
+      suivi$condition <- ""
+      # Pour chaque tablette affectée, renseigner l'agent et la date
+      if (nrow(assign_data) > 0) {
+        for (i in 1:nrow(assign_data)) {
+          idx <- which(suivi$tablette == assign_data$tablette[i])
+          if (length(idx) > 0 && suivi$etat[idx] == "Affectée") {
+            suivi$current_agent[idx] <- assign_data$agent_name[i]
+            suivi$assign_date[idx] <- assign_data$assign_date[i]
+          }
+        }
+      }
+      # Pour chaque retour, renseigner la date et l'état
+      if (nrow(returns_data) > 0) {
+        for (i in 1:nrow(returns_data)) {
+          idx <- which(suivi$tablette == returns_data$tablette[i])
+          if (length(idx) > 0) {
+            suivi$return_date[idx] <- returns_data$return_date[i]
+            suivi$condition[idx] <- returns_data$return_condition[i]
+          }
+        }
+      }
+      tablet_status(suivi)
     }
   })
-
-  # Génération de fiche d'affectation
-  observeEvent(input$generate_fiche_btn, {
-    req(input$fiche_agent)
-    if (input$fiche_agent == "") {
-      showNotification("Veuillez sélectionner un agent", type = "error")
-      return()
+  
+  # Sorties des tableaux
+  output$register_table <- renderDT({
+    data <- registered_tablets()
+    if (nrow(data) > 0) {
+      data$powerbank <- ifelse(data$powerbank, "Oui", "Non")
     }
-    
-    # Extraire l'agent et la tablette du choix
-    agent_info <- strsplit(input$fiche_agent, " - ")[[1]]
-    agent_name <- agent_info[1]
-    tablette_num <- agent_info[2]
-    
-    # Trouver les informations de l'affectation
-    assign_data <- assignments()[assignments()$agent == agent_name & assignments()$tablette == tablette_num, ]
-    
-    if (nrow(assign_data) == 0) {
-      showNotification("Informations d'affectation non trouvées", type = "error")
-      return()
-    }
-    
-    # Générer la fiche
-    filename <- generate_affectation_fiche(assign_data)
-    
-    # Ajouter à la table des fiches
-    new_fiche <- data.frame(
-      agent = agent_name,
-      tablette = tablette_num,
-      date_generation = as.character(Sys.Date()),
-      fichier = filename,
-      stringsAsFactors = FALSE
+    datatable(
+      data,
+      options = list(
+        pageLength = 10,
+        language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json')
+      ),
+      rownames = FALSE
     )
-    fiches(rbind(fiches(), new_fiche))
-    
-    showNotification(paste("Fiche d'affectation générée avec succès :", filename), type = "message")
   })
-
-  output$fiches_table <- renderDT({
-    if (nrow(fiches()) > 0) {
-      # Ajouter une colonne avec bouton de téléchargement
-      fiches_data <- fiches()
-      fiches_data$actions <- paste0(
-        '<button class="btn btn-sm btn-primary" onclick="downloadFile(\'', 
-        fiches_data$fichier, '\')">Télécharger</button>'
+  
+  output$assign_table <- renderDT({
+    data <- assignments()
+    if (nrow(data) > 0) {
+      data$powerbank <- ifelse(data$powerbank, "Oui", "Non")
+    }
+    datatable(
+      data,
+      options = list(
+        pageLength = 10,
+        language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json')
+      ),
+      rownames = FALSE
+    )
+  })
+  
+  # Output pour le tableau des retours
+  output$returns_table <- renderDT({
+    returns_data <- tablet_returns()
+    if (nrow(returns_data) == 0) {
+      datatable(
+        data.frame(Message = "Aucun retour enregistré"),
+        options = list(pageLength = 10, dom = 't'),
+        rownames = FALSE
       )
-      datatable(fiches_data, escape = FALSE, options = list(pageLength = 10))
     } else {
-      datatable(data.frame(Message = "Aucune fiche générée"), options = list(pageLength = 10))
+      # Formater les données pour l'affichage
+      display_data <- returns_data
+      if (nrow(display_data) > 0) {
+        display_data$powerbank_retourne <- ifelse(display_data$powerbank_retourne, "Oui", "Non")
+      }
+      datatable(
+        display_data,
+        options = list(
+          pageLength = 10,
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json')
+        ),
+        rownames = FALSE,
+        colnames = c("Tablette", "ID Agent", "Nom Agent", "Chargeur retourné", "Powerbank retourné", 
+                    "Motif", "État", "Date", "Notes")
+      )
     }
   })
-
-  # Endpoint de téléchargement pour les fiches
-  output$download_fiche <- downloadHandler(
-    filename = function() {
-      req(input$fiche_to_download)
-      input$fiche_to_download
-    },
-    content = function(file) {
-      req(input$fiche_to_download)
-      file.copy(input$fiche_to_download, file)
+  
+  # Outputs pour les compteurs du tableau de bord
+  
+  output$available_tablets_count <- renderText({
+    registered_data <- registered_tablets()
+    if (nrow(registered_data) == 0) return("0")
+    sum(registered_data$etat == "En stock", na.rm = TRUE)
+  })
+  
+  output$assigned_tablets_count <- renderText({
+    registered_data <- registered_tablets()
+    if (nrow(registered_data) == 0) return("0")
+    sum(registered_data$etat == "Affectée", na.rm = TRUE)
+  })
+  
+  output$returned_tablets_count <- renderText({
+    registered_data <- registered_tablets()
+    if (nrow(registered_data) == 0) return("0")
+    sum(registered_data$etat == "En réparation", na.rm = TRUE)
+  })
+  
+  output$out_of_service_tablets_count <- renderText({
+    registered_data <- registered_tablets()
+    if (nrow(registered_data) == 0) return("0")
+    sum(registered_data$etat == "Hors service", na.rm = TRUE)
+  })
+  
+  # Output pour le tableau de suivi des tablettes
+  output$tracking_table <- renderDT({
+    status_data <- tablet_status()
+    if (nrow(status_data) == 0) {
+      datatable(
+        data.frame(Message = "Aucune tablette enregistrée"),
+        options = list(pageLength = 10, dom = 't'),
+        rownames = FALSE
+      )
+    } else {
+      # Formater les données pour l'affichage
+      display_data <- status_data[, c("tablette", "status", "current_agent", "assign_date", "return_date", "condition")]
+      colnames(display_data) <- c("Tablette", "État", "Agent actuel", "Date d'affectation", "Date de retour", "État retour")
+      
+      datatable(
+        display_data,
+        options = list(
+          pageLength = 15,
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json')
+        ),
+        rownames = FALSE,
+        filter = 'top'
+      )
     }
-  )
-
-  output$stock_txt <- renderText({
-    stock <- sum(registered()$etat == "en stock")
-    paste("Stock disponible:", stock)
   })
-
-  output$assigned_txt <- renderText({
-    paste("Tablettes affect\u00e9es:", sum(registered()$etat == "affect\u00e9"))
-  })
-
-  output$incident_txt <- renderText({
-    paste("Incidents d\u00e9clar\u00e9s:", sum(registered()$etat == "endommag\u00e9"))
-  })
-
-  output$dashboard_table <- renderDT(registered())
 }
 
-shinyApp(ui, server)
+# Lancement de l'application
+shinyApp(ui = ui, server = server)
