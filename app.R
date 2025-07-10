@@ -608,7 +608,7 @@ ui <- navbarPage(
           )
         )
       )
-    )
+    ),
     fluidRow(
       column(
         12,
