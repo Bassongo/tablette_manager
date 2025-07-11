@@ -5,6 +5,134 @@ library(readxl)
 library(shinyjs)
 library(bslib)
 library(shinyWidgets)
+library(DBI)
+library(RSQLite)
+
+# Path to SQLite database
+db_path <- "tablette_manager.sqlite"
+
+# Establish a connection to the database
+get_db_connection <- function() {
+  dbConnect(RSQLite::SQLite(), db_path)
+}
+
+# Initialize database and tables
+init_database <- function() {
+  db <- get_db_connection()
+  on.exit(dbDisconnect(db))
+
+  dbExecute(db, "CREATE TABLE IF NOT EXISTS supervisors (user_name TEXT, user_login TEXT PRIMARY KEY, user_password TEXT)")
+  dbExecute(db, paste0(
+    "CREATE TABLE IF NOT EXISTS registered_tablets (",
+    "tablette TEXT PRIMARY KEY, chargeur TEXT, powerbank INTEGER, chargeur_ok INTEGER, ",
+    "powerbank_ok INTEGER, registration_date TEXT, etat TEXT, user_login TEXT)"))
+  dbExecute(db, paste0(
+    "CREATE TABLE IF NOT EXISTS assignments (",
+    "tablette TEXT, chargeur TEXT, powerbank INTEGER, agent_id TEXT, agent_name TEXT, agent_group TEXT, agent_function TEXT, agent_phone TEXT, agent_class TEXT, supervisor_name TEXT, supervisor_num TEXT, assign_date TEXT, user_login TEXT)"))
+  dbExecute(db, paste0(
+    "CREATE TABLE IF NOT EXISTS tablet_returns (",
+    "tablette TEXT, agent_id TEXT, agent_name TEXT, charger_retourne TEXT, powerbank_retourne INTEGER, return_reason TEXT, return_condition TEXT, return_date TEXT, return_notes TEXT, user_login TEXT)"))
+  dbExecute(db, paste0(
+    "CREATE TABLE IF NOT EXISTS tablet_incidents (",
+    "tablette TEXT, agent_id TEXT, agent_name TEXT, charger_usable INTEGER, powerbank_usable INTEGER, incident_type TEXT, incident_state TEXT, incident_date TEXT, notes TEXT, user_login TEXT)"))
+  dbExecute(db, "CREATE TABLE IF NOT EXISTS generated_fiches (filename TEXT, agent_name TEXT, tablette TEXT, timestamp TEXT, user_login TEXT)")
+}
+
+save_supervisors <- function(data) {
+  db <- get_db_connection()
+  on.exit(dbDisconnect(db))
+  dbExecute(db, "DELETE FROM supervisors")
+  if (nrow(data) > 0) dbWriteTable(db, "supervisors", data, append = TRUE)
+}
+
+load_supervisors <- function() {
+  db <- get_db_connection()
+  on.exit(dbDisconnect(db))
+  if (!"supervisors" %in% dbListTables(db)) {
+    return(data.frame(user_name = character(), user_login = character(), user_password = character(), stringsAsFactors = FALSE))
+  }
+  dbReadTable(db, "supervisors")
+}
+
+save_registered_tablets <- function(data) {
+  db <- get_db_connection()
+  on.exit(dbDisconnect(db))
+  dbExecute(db, "DELETE FROM registered_tablets")
+  if (nrow(data) > 0) dbWriteTable(db, "registered_tablets", data, append = TRUE)
+}
+
+load_registered_tablets <- function() {
+  db <- get_db_connection()
+  on.exit(dbDisconnect(db))
+  if (!"registered_tablets" %in% dbListTables(db)) {
+    return(data.frame(tablette = character(), chargeur = character(), powerbank = logical(), chargeur_ok = logical(), powerbank_ok = logical(), registration_date = character(), etat = character(), user_login = character(), stringsAsFactors = FALSE))
+  }
+  dbReadTable(db, "registered_tablets")
+}
+
+save_assignments <- function(data) {
+  db <- get_db_connection()
+  on.exit(dbDisconnect(db))
+  dbExecute(db, "DELETE FROM assignments")
+  if (nrow(data) > 0) dbWriteTable(db, "assignments", data, append = TRUE)
+}
+
+load_assignments <- function() {
+  db <- get_db_connection()
+  on.exit(dbDisconnect(db))
+  if (!"assignments" %in% dbListTables(db)) {
+    return(data.frame(tablette = character(), chargeur = character(), powerbank = logical(), agent_id = character(), agent_name = character(), agent_group = character(), agent_function = character(), agent_phone = character(), agent_class = character(), supervisor_name = character(), supervisor_num = character(), assign_date = character(), user_login = character(), stringsAsFactors = FALSE))
+  }
+  dbReadTable(db, "assignments")
+}
+
+save_tablet_returns <- function(data) {
+  db <- get_db_connection()
+  on.exit(dbDisconnect(db))
+  dbExecute(db, "DELETE FROM tablet_returns")
+  if (nrow(data) > 0) dbWriteTable(db, "tablet_returns", data, append = TRUE)
+}
+
+load_tablet_returns <- function() {
+  db <- get_db_connection()
+  on.exit(dbDisconnect(db))
+  if (!"tablet_returns" %in% dbListTables(db)) {
+    return(data.frame(tablette = character(), agent_id = character(), agent_name = character(), charger_retourne = character(), powerbank_retourne = logical(), return_reason = character(), return_condition = character(), return_date = character(), return_notes = character(), user_login = character(), stringsAsFactors = FALSE))
+  }
+  dbReadTable(db, "tablet_returns")
+}
+
+save_tablet_incidents <- function(data) {
+  db <- get_db_connection()
+  on.exit(dbDisconnect(db))
+  dbExecute(db, "DELETE FROM tablet_incidents")
+  if (nrow(data) > 0) dbWriteTable(db, "tablet_incidents", data, append = TRUE)
+}
+
+load_tablet_incidents <- function() {
+  db <- get_db_connection()
+  on.exit(dbDisconnect(db))
+  if (!"tablet_incidents" %in% dbListTables(db)) {
+    return(data.frame(tablette = character(), agent_id = character(), agent_name = character(), charger_usable = logical(), powerbank_usable = logical(), incident_type = character(), incident_state = character(), incident_date = character(), notes = character(), user_login = character(), stringsAsFactors = FALSE))
+  }
+  dbReadTable(db, "tablet_incidents")
+}
+
+save_generated_fiches <- function(data) {
+  db <- get_db_connection()
+  on.exit(dbDisconnect(db))
+  dbExecute(db, "DELETE FROM generated_fiches")
+  if (nrow(data) > 0) dbWriteTable(db, "generated_fiches", data, append = TRUE)
+}
+
+load_generated_fiches <- function() {
+  db <- get_db_connection()
+  on.exit(dbDisconnect(db))
+  if (!"generated_fiches" %in% dbListTables(db)) {
+    return(data.frame(filename = character(), agent_name = character(), tablette = character(), timestamp = character(), user_login = character(), stringsAsFactors = FALSE))
+  }
+  dbReadTable(db, "generated_fiches")
+}
 
 # Fonction pour analyser les placeholders dans le template
 analyze_document_variables <- function(template_path) {
@@ -687,72 +815,23 @@ ui <- navbarPage(
 
 # Serveur
 server <- function(input, output, session) {
-  
+
+  init_database()
+
   # Données réactives
-  supervisors <- reactiveVal(data.frame(
-    user_name = character(),
-    user_login = character(),
-    user_password = character(),
-    stringsAsFactors = FALSE
-  ))
+  supervisors <- reactiveVal(load_supervisors())
   user_role <- reactiveVal(NULL)
   current_user <- reactiveVal(NULL)
 
-  registered_tablets <- reactiveVal(data.frame(
-    tablette = character(),
-    chargeur = character(),
-    powerbank = logical(),
-    chargeur_ok = logical(),
-    powerbank_ok = logical(),
-    registration_date = character(),
-    etat = character(),
-    user_login = character(),
-    stringsAsFactors = FALSE
-  ))
-  
-  assignments <- reactiveVal(data.frame(
-    tablette = character(),
-    chargeur = character(),
-    powerbank = logical(),
-    agent_id = character(),
-    agent_name = character(),
-    agent_group = character(),
-    agent_function = character(),
-    agent_phone = character(),
-    agent_class = character(),
-    supervisor_name = character(),
-    supervisor_num = character(),
-    assign_date = character(),
-    user_login = character(),
-    stringsAsFactors = FALSE
-  ))
-  
-  # Nouvelles données réactives pour retour et suivi
-  tablet_returns <- reactiveVal(data.frame(
-    tablette = character(),
-    agent_name = character(),
-    return_reason = character(),
-    return_condition = character(),
-    return_date = character(),
-    return_notes = character(),
-    user_login = character(),
-    stringsAsFactors = FALSE
-  ))
+  registered_tablets <- reactiveVal(load_registered_tablets())
 
-  tablet_incidents <- reactiveVal(data.frame(
-    tablette = character(),
-    agent_id = character(),
-    agent_name = character(),
-    charger_usable = logical(),
-    powerbank_usable = logical(),
-    incident_type = character(),
-    incident_state = character(),
-    incident_date = character(),
-    notes = character(),
-    user_login = character(),
-    stringsAsFactors = FALSE
-  ))
-  
+  assignments <- reactiveVal(load_assignments())
+
+  # Nouvelles données réactives pour retour et suivi
+  tablet_returns <- reactiveVal(load_tablet_returns())
+
+  tablet_incidents <- reactiveVal(load_tablet_incidents())
+
   tablet_status <- reactiveVal(data.frame(
     tablette = character(),
     status = character(),
@@ -764,7 +843,7 @@ server <- function(input, output, session) {
   ))
 
   # Nouvelles données réactives pour les fiches générées
-  generated_fiches <- reactiveVal(list())
+  generated_fiches <- reactiveVal(load_generated_fiches())
   selected_fiche_index <- reactiveVal(NULL)
 
   filter_by_user <- function(data) {
@@ -836,6 +915,14 @@ server <- function(input, output, session) {
 
   # Gestion de la déconnexion
   observeEvent(input$logout_click, {
+    # Sauvegarder toutes les données avant réinitialisation
+    save_registered_tablets(registered_tablets())
+    save_assignments(assignments())
+    save_tablet_returns(tablet_returns())
+    save_tablet_incidents(tablet_incidents())
+    save_generated_fiches(generated_fiches())
+    save_supervisors(supervisors())
+
     # Réinitialiser toutes les données
     registered_tablets(data.frame(
       tablette = character(),
@@ -891,7 +978,14 @@ server <- function(input, output, session) {
       stringsAsFactors = FALSE
     ))
     
-    generated_fiches(list())
+    generated_fiches(data.frame(
+      filename = character(),
+      agent_name = character(),
+      tablette = character(),
+      timestamp = character(),
+      user_login = character(),
+      stringsAsFactors = FALSE
+    ))
     selected_fiche_index(NULL)
     
     # Réinitialiser l'utilisateur
@@ -986,6 +1080,7 @@ server <- function(input, output, session) {
     current_tablets <- registered_tablets()
     updated_tablets <- rbind(current_tablets, new_tablet)
     registered_tablets(updated_tablets)
+    save_registered_tablets(updated_tablets)
 
     updateTextInput(session, 'reg_tab_num_qr', value = '')
     updateTextInput(session, 'reg_charger_num_qr', value = '')
@@ -1091,6 +1186,7 @@ server <- function(input, output, session) {
       current_tablets <- registered_tablets()
       updated_tablets <- rbind(current_tablets, new_tablets)
       registered_tablets(updated_tablets)
+      save_registered_tablets(updated_tablets)
       
       # Réinitialiser le champ de fichier
       reset("tablets_register_file")
@@ -1132,10 +1228,12 @@ server <- function(input, output, session) {
     current_assignments <- assignments()
     updated_assignments <- rbind(current_assignments, new_assignment)
     assignments(updated_assignments)
+    save_assignments(updated_assignments)
     
     # Mettre à jour l'état de la tablette à "Affectée"
     current_tablets$etat[idx] <- "Affectée"
     registered_tablets(current_tablets)
+    save_registered_tablets(current_tablets)
     
     # Réinitialiser les champs
     updateTextInput(session, "tab_num", value = "")
@@ -1239,11 +1337,13 @@ server <- function(input, output, session) {
       current_assignments <- assignments()
       updated_assignments <- rbind(current_assignments, new_assignments)
       assignments(updated_assignments)
+      save_assignments(updated_assignments)
       
       # Mettre à jour l'état des tablettes à "Affectée"
       idxs <- match(shuffled_tablets$tablette, current_tablets$tablette)
       current_tablets$etat[idxs] <- "Affectée"
       registered_tablets(current_tablets)
+      save_registered_tablets(current_tablets)
       
       # Réinitialiser les champs de fichiers
       reset("agents_file")
@@ -1279,15 +1379,17 @@ server <- function(input, output, session) {
         
         # Ajouter à l'historique des fiches
         current_fiches <- generated_fiches()
-        new_fiche <- list(
+        new_fiche <- data.frame(
           filename = result$filename,
-          data = result$data,
-          timestamp = Sys.time(),
           agent_name = assign_data$agent_name,
-          tablette = assign_data$tablette
+          tablette = assign_data$tablette,
+          timestamp = as.character(Sys.time()),
+          user_login = current_user(),
+          stringsAsFactors = FALSE
         )
-        current_fiches <- c(current_fiches, list(new_fiche))
-        generated_fiches(current_fiches)
+        updated_fiches <- rbind(current_fiches, new_fiche)
+        generated_fiches(updated_fiches)
+        save_generated_fiches(updated_fiches)
         
         # Afficher la prévisualisation
         showModal(modalDialog(
@@ -1324,7 +1426,7 @@ server <- function(input, output, session) {
         ))
         
         # Stocker l'index de la fiche pour le téléchargement
-        selected_fiche_index(length(current_fiches))
+        selected_fiche_index(nrow(updated_fiches))
         
         showNotification(paste("Fiche générée:", result$filename), type = "default")
       }, error = function(e) {
@@ -1338,8 +1440,8 @@ server <- function(input, output, session) {
     filename = function() {
       req(selected_fiche_index())
       current_fiches <- generated_fiches()
-      if (selected_fiche_index() <= length(current_fiches)) {
-        current_fiches[[selected_fiche_index()]]$filename
+      if (selected_fiche_index() <= nrow(current_fiches)) {
+        current_fiches$filename[selected_fiche_index()]
       } else {
         "fiche.docx"
       }
@@ -1347,9 +1449,9 @@ server <- function(input, output, session) {
     content = function(file) {
       req(selected_fiche_index())
       current_fiches <- generated_fiches()
-      if (selected_fiche_index() <= length(current_fiches)) {
-        fiche <- current_fiches[[selected_fiche_index()]]
-        file.copy(fiche$filename, file)
+      if (selected_fiche_index() <= nrow(current_fiches)) {
+        fiche <- current_fiches$filename[selected_fiche_index()]
+        file.copy(fiche, file)
       }
     }
   )
@@ -1365,23 +1467,33 @@ server <- function(input, output, session) {
     
     tryCatch({
       current_fiches <- generated_fiches()
-      
+
+      new_rows <- data.frame(
+        filename = character(),
+        agent_name = character(),
+        tablette = character(),
+        timestamp = character(),
+        user_login = character(),
+        stringsAsFactors = FALSE
+      )
+
       for (i in 1:nrow(current_assignments)) {
         assign_data <- current_assignments[i, ]
         result <- generate_affectation_fiche(assign_data)
-        
-        # Ajouter à l'historique
-        new_fiche <- list(
+
+        new_rows <- rbind(new_rows, data.frame(
           filename = result$filename,
-          data = result$data,
-          timestamp = Sys.time(),
           agent_name = assign_data$agent_name,
-          tablette = assign_data$tablette
-        )
-        current_fiches <- c(current_fiches, list(new_fiche))
+          tablette = assign_data$tablette,
+          timestamp = as.character(Sys.time()),
+          user_login = current_user(),
+          stringsAsFactors = FALSE
+        ))
       }
-      
-      generated_fiches(current_fiches)
+
+      updated_fiches <- rbind(current_fiches, new_rows)
+      generated_fiches(updated_fiches)
+      save_generated_fiches(updated_fiches)
       showNotification(paste(nrow(current_assignments), "fiches générées avec succès!"), type = "default")
     }, error = function(e) {
       showNotification("Erreur lors de la génération des fiches", type = "error")
@@ -1398,8 +1510,8 @@ server <- function(input, output, session) {
   # Output pour l'historique des fiches
   output$fiches_history_table <- renderDT({
     current_fiches <- generated_fiches()
-    
-    if (length(current_fiches) == 0) {
+
+    if (nrow(current_fiches) == 0) {
       datatable(
         data.frame(Message = "Aucune fiche générée"),
         options = list(pageLength = 10, dom = 't'),
@@ -1408,10 +1520,10 @@ server <- function(input, output, session) {
     } else {
       # Créer un data.frame pour l'affichage
       history_data <- data.frame(
-        Agent = sapply(current_fiches, function(x) x$agent_name),
-        Tablette = sapply(current_fiches, function(x) x$tablette),
-        Fichier = sapply(current_fiches, function(x) x$filename),
-        Date = sapply(current_fiches, function(x) format(x$timestamp, "%d/%m/%Y %H:%M")),
+        Agent = current_fiches$agent_name,
+        Tablette = current_fiches$tablette,
+        Fichier = current_fiches$filename,
+        Date = format(as.POSIXct(current_fiches$timestamp), "%d/%m/%Y %H:%M"),
         stringsAsFactors = FALSE
       )
       
@@ -1438,39 +1550,18 @@ server <- function(input, output, session) {
     req(input$selected_fiche_row)
     current_fiches <- generated_fiches()
     row_index <- input$selected_fiche_row + 1  # +1 car l'index commence à 0
-    
-    if (row_index <= length(current_fiches)) {
-      fiche <- current_fiches[[row_index]]
+
+    if (row_index <= nrow(current_fiches)) {
+      fiche <- current_fiches[row_index, ]
       selected_fiche_index(row_index)
-      
-      # Afficher la prévisualisation
+
+      # Afficher la prévisualisation basique
       showModal(modalDialog(
         title = paste("Fiche :", fiche$filename),
-        size = "l",
-        fluidRow(
-          column(12,
-            h5("Informations de l'agent :"),
-            tags$ul(
-              tags$li(paste("Nom :", fiche$data$agent_name)),
-              tags$li(paste("ID :", fiche$data$agent_id)),
-              tags$li(paste("Groupe :", fiche$data$agent_group)),
-              tags$li(paste("Fonction :", fiche$data$agent_function)),
-              tags$li(paste("Téléphone :", fiche$data$agent_phone))
-            ),
-            h5("Informations de la tablette :"),
-            tags$ul(
-              tags$li(paste("Tablette :", fiche$data$tablette)),
-              tags$li(paste("Chargeur :", fiche$data$chargeur)),
-              tags$li(paste("Powerbank :", ifelse(fiche$data$powerbank, "Oui", "Non")))
-            ),
-            h5("Informations du superviseur :"),
-            tags$ul(
-              tags$li(paste("Nom :", fiche$data$supervisor_name)),
-              tags$li(paste("Numéro :", fiche$data$supervisor_num)),
-              tags$li(paste("Date d'affectation :", fiche$data$assign_date))
-            )
-          )
-        ),
+        size = "m",
+        tags$p(paste("Agent :", fiche$agent_name)),
+        tags$p(paste("Tablette :", fiche$tablette)),
+        tags$p(paste("Générée le :", format(as.POSIXct(fiche$timestamp), "%d/%m/%Y %H:%M"))),
         footer = tagList(
           downloadButton("download_fiche", "Télécharger la fiche", class = "btn-success"),
           modalButton("Fermer")
@@ -1591,6 +1682,7 @@ server <- function(input, output, session) {
     current_returns <- tablet_returns()
     updated_returns <- rbind(current_returns, new_return)
     tablet_returns(updated_returns)
+    save_tablet_returns(updated_returns)
     
     # Mettre à jour l'état de la tablette selon la condition de retour
     current_tablets <- registered_tablets()
@@ -1608,6 +1700,7 @@ server <- function(input, output, session) {
       
       current_tablets$etat[tablet_idx] <- new_state
       registered_tablets(current_tablets)
+      save_registered_tablets(current_tablets)
     }
     
     # Supprimer l'affectation
@@ -1616,6 +1709,7 @@ server <- function(input, output, session) {
     if (length(assignment_idx) > 0) {
       updated_assignments <- current_assignments[-assignment_idx, ]
       assignments(updated_assignments)
+      save_assignments(updated_assignments)
     }
     
     # Réinitialiser les champs
@@ -1765,7 +1859,9 @@ server <- function(input, output, session) {
     )
 
     current_incidents <- tablet_incidents()
-    tablet_incidents(rbind(current_incidents, new_incident))
+    updated_incidents <- rbind(current_incidents, new_incident)
+    tablet_incidents(updated_incidents)
+    save_tablet_incidents(updated_incidents)
 
     current_tablets <- registered_tablets()
     reg_idx <- which(current_tablets$tablette == tablet_num)
@@ -1774,10 +1870,12 @@ server <- function(input, output, session) {
       current_tablets$chargeur_ok[reg_idx] <- input$incident_charger_ok
       current_tablets$powerbank_ok[reg_idx] <- input$incident_powerbank_ok
       registered_tablets(current_tablets)
+      save_registered_tablets(current_tablets)
     }
 
     updated_assignments <- current_assignments[-tablet_idx, ]
     assignments(updated_assignments)
+    save_assignments(updated_assignments)
 
     updateTextInput(session, "incident_agent_id", value = "")
     updateSelectInput(session, "incident_tablet_select", selected = "")
@@ -1898,6 +1996,7 @@ server <- function(input, output, session) {
       # Ajouter les nouveaux superviseurs
       updated_supervisors <- rbind(current_supervisors, new_supervisors)
       supervisors(updated_supervisors)
+      save_supervisors(updated_supervisors)
       
       # Réinitialiser le champ de fichier
       reset("supervisors_file")
@@ -1936,6 +2035,7 @@ server <- function(input, output, session) {
       user_password = character(),
       stringsAsFactors = FALSE
     ))
+    save_supervisors(supervisors())
     removeModal()
     showNotification("Base des superviseurs vidée avec succès", type = "default")
   })
@@ -1965,6 +2065,7 @@ server <- function(input, output, session) {
       if (row_to_delete <= nrow(current_supervisors)) {
         updated_supervisors <- current_supervisors[-row_to_delete, ]
         supervisors(updated_supervisors)
+        save_supervisors(updated_supervisors)
         showNotification("Superviseur supprimé avec succès", type = "default")
       }
     }
@@ -2136,4 +2237,4 @@ server <- function(input, output, session) {
 }
 
 # Lancement de l'application
-shinyApp(ui = ui, server = server)###
+shinyApp(ui = ui, server = server)
