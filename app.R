@@ -50,7 +50,7 @@ generate_affectation_fiche <- function(assign_data) {
   filename <- paste0("Fiche_", safe_agent_name, "_", safe_tablet_name, "_", Sys.Date(), ".docx")
   
   print(doc, target = filename)
-  return(filename)
+  return(list(filename = filename, data = assign_data))
 }
 
 # Interface utilisateur principale
@@ -156,7 +156,7 @@ ui <- navbarPage(
       
       /* Boutons d'action */
       .btn-success {
-        background: linear-gradient(135deg, var(--success-color) 0%, #1e7e34 100%) !important;
+        background: linear-gradient(135deg, var(--success-color) 0%, #20c997 100%) !important;
         border: none;
         border-radius: 25px;
         box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
@@ -245,6 +245,12 @@ ui <- navbarPage(
           width: 100%;
           margin-bottom: 10px;
         }
+      }
+      
+      /* Style pour les fiches sélectionnées */
+      .selected-fiche {
+        background-color: #e3f2fd !important;
+        border-left: 4px solid var(--primary-color) !important;
       }
     "))
   ),
@@ -461,13 +467,22 @@ ui <- navbarPage(
                 div(style = "margin-bottom: 20px;",
                     h5("Sélection des affectations", style = "color: var(--primary-color); font-weight: 600;"),
                     selectInput("fiche_assign_select", "Sélectionner une affectation", choices = NULL),
-                    actionBttn("generate_fiche_btn", "Générer la fiche", style = "fill", color = "success", class = "blue-btn")
+                    actionBttn("generate_fiche_btn", "Générer la fiche", style = "fill", color = "success", class = "blue-btn"),
+                    actionBttn("reset_selection_btn", "Réinitialiser la sélection", style = "fill", color = "warning", class = "blue-btn")
                 )
               ),
               column(6,
                 div(style = "margin-bottom: 20px;",
                     h5("Génération en masse", style = "color: var(--primary-color); font-weight: 600;"),
                     actionBttn("generate_all_fiches_btn", "Générer toutes les fiches", style = "fill", color = "warning", class = "blue-btn")
+                )
+              )
+            ),
+            fluidRow(
+              column(12,
+                div(style = "margin-top: 20px;",
+                    h5("Historique des fiches générées", style = "color: var(--primary-color); font-weight: 600;"),
+                    DTOutput("fiches_history_table")
                 )
               )
             )
@@ -556,67 +571,118 @@ ui <- navbarPage(
   ),
   tabPanel(
     "Administration",
-    fluidRow(
-      column(
-        12,
-        card(
-          card_header("État général des tablettes", class = "card-header"),
-          card_body(
-            fluidRow(
-              column(3,
-                div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border-radius: 10px; color: white;",
-                    h3(textOutput("available_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
-                    p("Tablettes disponibles", style = "margin: 5px 0 0 0;")
-                )
-              ),
-              column(3,
-                div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); border-radius: 10px; color: white;",
-                    h3(textOutput("assigned_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
-                    p("Tablettes affectées", style = "margin: 5px 0 0 0;")
-                )
-              ),
-              column(3,
-                div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); border-radius: 10px; color: white;",
-                    h3(textOutput("returned_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
-                    p("Tablettes en retour", style = "margin: 5px 0 0 0;")
-                )
-              ),
-              column(3,
-                div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 10px; color: white;",
-                    h3(textOutput("out_of_service_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
-                    p("Tablettes hors service", style = "margin: 5px 0 0 0;")
-                )
-              )
-            )
-          )
-        )
-      )
-    ),
-    fluidRow(
-      column(
-        12,
-        card(
-          card_header("Tableau de suivi détaillé", class = "card-header"),
-          card_body(
-            fluidRow(
-              column(12,
-                div(style = "margin-bottom: 15px;",
-                    h5("Filtres", style = "color: var(--primary-color); font-weight: 600;"),
-                    fluidRow(
-                      column(3, selectInput("status_filter", "Statut", choices = c("Tous", "Disponible", "Affectée", "En retour", "Hors service"))),
-                      column(3, selectInput("group_filter", "Groupe", choices = c("Tous"))),
-                      column(3, selectInput("function_filter", "Fonction", choices = c("Tous", "Enquêteur", "Superviseur"))),
-                      column(3, actionBttn("apply_filters_btn", "Appliquer les filtres", style = "fill", color = "primary", class = "blue-btn"))
+    tabsetPanel(
+      tabPanel(
+        "Tableau de bord",
+        fluidRow(
+          column(
+            12,
+            card(
+              card_header("État général des tablettes", class = "card-header"),
+              card_body(
+                fluidRow(
+                  column(3,
+                    div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border-radius: 10px; color: white;",
+                        h3(textOutput("available_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
+                        p("Tablettes disponibles", style = "margin: 5px 0 0 0;")
+                    )
+                  ),
+                  column(3,
+                    div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); border-radius: 10px; color: white;",
+                        h3(textOutput("assigned_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
+                        p("Tablettes affectées", style = "margin: 5px 0 0 0;")
+                    )
+                  ),
+                  column(3,
+                    div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); border-radius: 10px; color: white;",
+                        h3(textOutput("returned_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
+                        p("Tablettes en retour", style = "margin: 5px 0 0 0;")
+                    )
+                  ),
+                  column(3,
+                    div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 10px; color: white;",
+                        h3(textOutput("out_of_service_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
+                        p("Tablettes hors service", style = "margin: 5px 0 0 0;")
                     )
                   )
+                )
+              )
+            )
+          )
+        ),
+        fluidRow(
+          column(
+            12,
+            card(
+              card_header("Tableau de suivi détaillé", class = "card-header"),
+              card_body(
+                fluidRow(
+                  column(12,
+                    div(style = "margin-bottom: 15px;",
+                        h5("Filtres", style = "color: var(--primary-color); font-weight: 600;"),
+                        fluidRow(
+                          column(3, selectInput("status_filter", "Statut", choices = c("Tous", "Disponible", "Affectée", "En retour", "Hors service"))),
+                          column(3, selectInput("group_filter", "Groupe", choices = c("Tous"))),
+                          column(3, selectInput("function_filter", "Fonction", choices = c("Tous", "Enquêteur", "Superviseur"))),
+                          column(3, actionBttn("apply_filters_btn", "Appliquer les filtres", style = "fill", color = "primary", class = "blue-btn"))
+                        )
+                      )
+                    ),
+                    DTOutput("tracking_table")
+                  )
+                )
+              )
+            )
+          )
+        )
+      ),
+      tabPanel(
+        "Gestion des Superviseurs",
+        fluidRow(
+          column(
+            4,
+            card(
+              card_header("Import des Superviseurs", class = "card-header"),
+              card_body(
+                div(style = "margin-bottom: 15px;",
+                    h5("Format requis", style = "color: var(--primary-color); font-weight: 600;"),
+                    p("Le fichier Excel doit contenir les colonnes suivantes :"),
+                    tags$ul(
+                      tags$li("user_name : Nom complet du superviseur"),
+                      tags$li("user_login : Identifiant de connexion"),
+                      tags$li("user_password : Mot de passe")
+                    )
                 ),
-                DTOutput("tracking_table")
+                div(style = "margin-bottom: 20px;",
+                    fileInput(
+                      "supervisors_file",
+                      "Fichier Excel des superviseurs",
+                      accept = c(".xlsx", ".xls")
+                    )
+                ),
+                div(style = "margin-bottom: 20px;",
+                    actionBttn("import_supervisors_btn", "Importer les superviseurs", 
+                              style = "fill", color = "success", class = "blue-btn")
+                ),
+                div(style = "margin-bottom: 20px;",
+                    actionBttn("clear_supervisors_btn", "Vider la base des superviseurs", 
+                              style = "fill", color = "danger", class = "blue-btn")
+                )
+              )
+            )
+          ),
+          column(
+            8,
+            card(
+              card_header("Base des Superviseurs", class = "card-header"),
+              card_body(
+                DTOutput("supervisors_table")
               )
             )
           )
         )
       )
-    ),
+    )
   )
 
 # Serveur
@@ -697,6 +763,10 @@ server <- function(input, output, session) {
     stringsAsFactors = FALSE
   ))
 
+  # Nouvelles données réactives pour les fiches générées
+  generated_fiches <- reactiveVal(list())
+  selected_fiche_index <- reactiveVal(NULL)
+
   filter_by_user <- function(data) {
     role <- user_role()
     if (!is.null(role) && role == "supervisor") {
@@ -705,6 +775,9 @@ server <- function(input, output, session) {
       data
     }
   }
+  
+
+
   observeEvent(TRUE, {
     showModal(modalDialog(
       title = "Connexion",
@@ -739,24 +812,125 @@ server <- function(input, output, session) {
     } else {
       showTab("navbar", "Administration")
     }
+    
+    # Ajouter le bouton de déconnexion avec un identifiant unique
+    removeUI(selector = "#logout_button", immediate = TRUE)
+    insertUI(
+      selector = ".navbar-nav",
+      where = "beforeEnd",
+      ui = tags$li(
+        id = "logout_button",
+        class = "nav-item",
+        tags$a(
+          class = "nav-link",
+          href = "#",
+          icon("sign-out-alt"),
+          "Déconnexion",
+          onclick = "Shiny.setInputValue('logout_click', Math.random())"
+        )
+      )
+    )
+    
     updateNavbarPage(session, "navbar", selected = "Accueil")
+  })
+
+  # Gestion de la déconnexion
+  observeEvent(input$logout_click, {
+    # Réinitialiser toutes les données
+    registered_tablets(data.frame(
+      tablette = character(),
+      chargeur = character(),
+      powerbank = logical(),
+      chargeur_ok = logical(),
+      powerbank_ok = logical(),
+      registration_date = character(),
+      etat = character(),
+      user_login = character(),
+      stringsAsFactors = FALSE
+    ))
+    
+    assignments(data.frame(
+      tablette = character(),
+      chargeur = character(),
+      powerbank = logical(),
+      agent_id = character(),
+      agent_name = character(),
+      agent_group = character(),
+      agent_function = character(),
+      agent_phone = character(),
+      agent_class = character(),
+      supervisor_name = character(),
+      supervisor_num = character(),
+      assign_date = character(),
+      user_login = character(),
+      stringsAsFactors = FALSE
+    ))
+    
+    tablet_returns(data.frame(
+      tablette = character(),
+      agent_name = character(),
+      return_reason = character(),
+      return_condition = character(),
+      return_date = character(),
+      return_notes = character(),
+      user_login = character(),
+      stringsAsFactors = FALSE
+    ))
+    
+    tablet_incidents(data.frame(
+      tablette = character(),
+      agent_id = character(),
+      agent_name = character(),
+      charger_usable = logical(),
+      powerbank_usable = logical(),
+      incident_type = character(),
+      incident_state = character(),
+      incident_date = character(),
+      notes = character(),
+      user_login = character(),
+      stringsAsFactors = FALSE
+    ))
+    
+    generated_fiches(list())
+    selected_fiche_index(NULL)
+    
+    # Réinitialiser l'utilisateur
+    user_role(NULL)
+    current_user(NULL)
+    
+    # Supprimer le bouton de déconnexion
+    removeUI(selector = "#logout_button", immediate = TRUE)
+    
+    # Afficher la modal de connexion
+    showModal(modalDialog(
+      title = "Connexion",
+      textInput("login_user", "Login"),
+      passwordInput("login_pass", "Mot de passe"),
+      footer = tagList(
+        actionButton("login_btn", "Se connecter")
+      ),
+      easyClose = FALSE
+    ))
   })
 
   output$welcome_message <- renderUI({
     req(current_user(), user_role())
     if (user_role() == "supervisor") {
-      HTML(paste0("<h2>Bienvenue ", current_user(), "</h2>",
+      # Récupérer le nom complet du superviseur
+      sup <- supervisors()
+      user_idx <- which(sup$user_login == current_user())
+      user_display_name <- if (length(user_idx) > 0) sup$user_name[user_idx] else current_user()
+      
+      HTML(paste0("<h2>Bienvenue ", user_display_name, "</h2>",
                   "<p>Vous \u00eates connect\u00e9 en tant que superviseur. " ,
                   "Vous ne voyez que vos propres actions.</p>"))
     } else {
-      HTML(paste0("<h2>Bienvenue ", current_user(), "</h2>",
+      HTML(paste0("<h2>Bienvenue Administrateur</h2>",
                   "<p>Vous \u00eates connect\u00e9 en tant qu'administrateur." ,
                   "</p>"))
     }
   })
 
-
-  
   # Observateurs pour les boutons de scan QR
   observeEvent(input$scan_tablet_btn, {
     showModal(modalDialog(
@@ -784,6 +958,13 @@ server <- function(input, output, session) {
 
   observeEvent(input$scanned_charger_code, {
     updateTextInput(session, 'reg_charger_num_qr', value = input$scanned_charger_code)
+  })
+
+  # Réinitialisation de la sélection des fiches
+  observeEvent(input$reset_selection_btn, {
+    updateSelectInput(session, "fiche_assign_select", selected = "")
+    selected_fiche_index(NULL)
+    showNotification("Sélection réinitialisée", type = "default")
   })
 
   # Enregistrement via QR
@@ -847,17 +1028,60 @@ server <- function(input, output, session) {
     
     tryCatch({
       data <- read_excel(input$tablets_register_file$datapath)
-      # Conversion 'vrai'/'faux' en logique
-      if (is.character(data$powerbank)) {
-        data$powerbank <- tolower(data$powerbank)
-        data$powerbank <- ifelse(data$powerbank %in% c('vrai', 'true'), TRUE, FALSE)
+      
+      # Vérifier que les colonnes requises existent
+      required_columns <- c("tablette", "chargeur", "powerbank")
+      missing_columns <- setdiff(required_columns, colnames(data))
+      
+      if (length(missing_columns) > 0) {
+        showNotification(
+          paste("Erreur : Colonnes manquantes dans le fichier Excel :", paste(missing_columns, collapse = ", ")), 
+          type = "error"
+        )
+        return()
       }
+      
+      # Vérifier que les données ne sont pas vides
+      if (nrow(data) == 0) {
+        showNotification("Le fichier ne contient aucune donnée", type = "error")
+        return()
+      }
+      
+      # Vérifier que les champs obligatoires ne sont pas vides
+      empty_fields <- data$tablette == "" | is.na(data$tablette) |
+                     data$chargeur == "" | is.na(data$chargeur)
+      
+      if (any(empty_fields)) {
+        showNotification(
+          paste("Erreur : Champs vides détectés aux lignes :", 
+                paste(which(empty_fields), collapse = ", ")), 
+          type = "error"
+        )
+        return()
+      }
+      
+      # Conversion 'vrai'/'faux' en logique pour powerbank
+      if ("powerbank" %in% colnames(data)) {
+        if (is.character(data$powerbank)) {
+          data$powerbank <- tolower(data$powerbank)
+          data$powerbank <- ifelse(data$powerbank %in% c('vrai', 'true', 'oui', 'yes', '1'), TRUE, FALSE)
+        } else if (is.numeric(data$powerbank)) {
+          data$powerbank <- as.logical(data$powerbank)
+        } else if (is.logical(data$powerbank)) {
+          # Déjà au bon format
+        } else {
+          data$powerbank <- FALSE  # Par défaut
+        }
+      } else {
+        data$powerbank <- FALSE  # Par défaut si la colonne n'existe pas
+      }
+      
       new_tablets <- data.frame(
-        tablette = data$tablette,
-        chargeur = data$chargeur,
-        powerbank = data$powerbank,
+        tablette = as.character(data$tablette),
+        chargeur = as.character(data$chargeur),
+        powerbank = as.logical(data$powerbank),
         chargeur_ok = TRUE,
-        powerbank_ok = data$powerbank,
+        powerbank_ok = as.logical(data$powerbank),
         registration_date = as.character(Sys.Date()),
         etat = rep("En stock", nrow(data)),
         user_login = rep(current_user(), nrow(data)),
@@ -873,7 +1097,7 @@ server <- function(input, output, session) {
       
       showNotification(paste(nrow(new_tablets), "tablettes enregistrées avec succès!"), type = "default")
     }, error = function(e) {
-      showNotification("Erreur lors de l'enregistrement en masse", type = "error")
+      showNotification(paste("Erreur lors de l'enregistrement en masse :", e$message), type = "error")
     })
   })
   
@@ -936,39 +1160,86 @@ server <- function(input, output, session) {
     tryCatch({
       agents_data <- read_excel(input$agents_file$datapath)
       tablets_data <- read_excel(input$tablets_file$datapath)
-      if (is.character(tablets_data$powerbank)) {
-        tablets_data$powerbank <- tolower(tablets_data$powerbank)
-        tablets_data$powerbank <- ifelse(tablets_data$powerbank %in% c('vrai', 'true'), TRUE, FALSE)
+      
+      # Vérifier les colonnes requises pour les agents
+      required_agent_columns <- c("id_agent", "agent", "groupe", "fonction", "telephone", "classe", "superviseur", "numero_superviseur")
+      missing_agent_columns <- setdiff(required_agent_columns, colnames(agents_data))
+      
+      if (length(missing_agent_columns) > 0) {
+        showNotification(
+          paste("Erreur : Colonnes manquantes dans le fichier agents :", paste(missing_agent_columns, collapse = ", ")), 
+          type = "error"
+        )
+        return()
       }
+      
+      # Vérifier les colonnes requises pour les tablettes
+      required_tablet_columns <- c("tablette", "chargeur", "powerbank")
+      missing_tablet_columns <- setdiff(required_tablet_columns, colnames(tablets_data))
+      
+      if (length(missing_tablet_columns) > 0) {
+        showNotification(
+          paste("Erreur : Colonnes manquantes dans le fichier tablettes :", paste(missing_tablet_columns, collapse = ", ")), 
+          type = "error"
+        )
+        return()
+      }
+      
+      # Conversion powerbank pour les tablettes
+      if ("powerbank" %in% colnames(tablets_data)) {
+        if (is.character(tablets_data$powerbank)) {
+          tablets_data$powerbank <- tolower(tablets_data$powerbank)
+          tablets_data$powerbank <- ifelse(tablets_data$powerbank %in% c('vrai', 'true', 'oui', 'yes', '1'), TRUE, FALSE)
+        } else if (is.numeric(tablets_data$powerbank)) {
+          tablets_data$powerbank <- as.logical(tablets_data$powerbank)
+        } else if (is.logical(tablets_data$powerbank)) {
+          # Déjà au bon format
+        } else {
+          tablets_data$powerbank <- FALSE
+        }
+      } else {
+        tablets_data$powerbank <- FALSE
+      }
+      
       # Filtrer les tablettes en stock
       current_tablets <- registered_tablets()
       tablets_data <- tablets_data[tablets_data$tablette %in% current_tablets$tablette & current_tablets$etat[match(tablets_data$tablette, current_tablets$tablette)] == "En stock", ]
+      
+      if (nrow(tablets_data) == 0) {
+        showNotification("Aucune tablette en stock trouvée dans le fichier", type = "warning")
+        return()
+      }
+      
       n_agents <- nrow(agents_data)
       n_tablets <- nrow(tablets_data)
+      
       if (n_tablets > n_agents) {
         showNotification("Plus de tablettes que d'agents disponibles", type = "warning")
         return()
       }
+      
       shuffled_tablets <- tablets_data[sample(n_tablets), ]
       new_assignments <- data.frame(
-        tablette = shuffled_tablets$tablette,
-        chargeur = shuffled_tablets$chargeur,
-        powerbank = shuffled_tablets$powerbank,
-        agent_id = agents_data$id_agent[1:n_tablets],
-        agent_name = agents_data$agent[1:n_tablets],
-        agent_group = agents_data$groupe[1:n_tablets],
-        agent_function = agents_data$fonction[1:n_tablets],
-        agent_phone = agents_data$telephone[1:n_tablets],
-        agent_class = agents_data$classe[1:n_tablets],
-        supervisor_name = agents_data$superviseur[1:n_tablets],
-        supervisor_num = agents_data$numero_superviseur[1:n_tablets],
+        tablette = as.character(shuffled_tablets$tablette),
+        chargeur = as.character(shuffled_tablets$chargeur),
+        powerbank = as.logical(shuffled_tablets$powerbank),
+        agent_id = as.character(agents_data$id_agent[1:n_tablets]),
+        agent_name = as.character(agents_data$agent[1:n_tablets]),
+        agent_group = as.character(agents_data$groupe[1:n_tablets]),
+        agent_function = as.character(agents_data$fonction[1:n_tablets]),
+        agent_phone = as.character(agents_data$telephone[1:n_tablets]),
+        agent_class = as.character(agents_data$classe[1:n_tablets]),
+        supervisor_name = as.character(agents_data$superviseur[1:n_tablets]),
+        supervisor_num = as.character(agents_data$numero_superviseur[1:n_tablets]),
         assign_date = as.character(Sys.Date()),
         user_login = rep(current_user(), n_tablets),
         stringsAsFactors = FALSE
       )
+      
       current_assignments <- assignments()
       updated_assignments <- rbind(current_assignments, new_assignments)
       assignments(updated_assignments)
+      
       # Mettre à jour l'état des tablettes à "Affectée"
       idxs <- match(shuffled_tablets$tablette, current_tablets$tablette)
       current_tablets$etat[idxs] <- "Affectée"
@@ -980,7 +1251,7 @@ server <- function(input, output, session) {
       
       showNotification(paste(nrow(new_assignments), "affectations créées avec succès!"), type = "default")
     }, error = function(e) {
-      showNotification("Erreur lors de l'affectation en masse", type = "error")
+      showNotification(paste("Erreur lors de l'affectation en masse :", e$message), type = "error")
     })
   })
   
@@ -993,7 +1264,7 @@ server <- function(input, output, session) {
     }
   })
   
-  # Génération de fiche individuelle
+  # Génération de fiche individuelle avec prévisualisation
   observeEvent(input$generate_fiche_btn, {
     req(input$fiche_assign_select)
     
@@ -1004,15 +1275,86 @@ server <- function(input, output, session) {
       assign_data <- current_assignments[selected_index, ]
       
       tryCatch({
-        filename <- generate_affectation_fiche(assign_data)
-        showNotification(paste("Fiche générée:", filename), type = "default")
+        result <- generate_affectation_fiche(assign_data)
+        
+        # Ajouter à l'historique des fiches
+        current_fiches <- generated_fiches()
+        new_fiche <- list(
+          filename = result$filename,
+          data = result$data,
+          timestamp = Sys.time(),
+          agent_name = assign_data$agent_name,
+          tablette = assign_data$tablette
+        )
+        current_fiches <- c(current_fiches, list(new_fiche))
+        generated_fiches(current_fiches)
+        
+        # Afficher la prévisualisation
+        showModal(modalDialog(
+          title = paste("Fiche générée :", result$filename),
+          size = "l",
+          fluidRow(
+            column(12,
+              h5("Informations de l'agent :"),
+              tags$ul(
+                tags$li(paste("Nom :", assign_data$agent_name)),
+                tags$li(paste("ID :", assign_data$agent_id)),
+                tags$li(paste("Groupe :", assign_data$agent_group)),
+                tags$li(paste("Fonction :", assign_data$agent_function)),
+                tags$li(paste("Téléphone :", assign_data$agent_phone))
+              ),
+              h5("Informations de la tablette :"),
+              tags$ul(
+                tags$li(paste("Tablette :", assign_data$tablette)),
+                tags$li(paste("Chargeur :", assign_data$chargeur)),
+                tags$li(paste("Powerbank :", ifelse(assign_data$powerbank, "Oui", "Non")))
+              ),
+              h5("Informations du superviseur :"),
+              tags$ul(
+                tags$li(paste("Nom :", assign_data$supervisor_name)),
+                tags$li(paste("Numéro :", assign_data$supervisor_num)),
+                tags$li(paste("Date d'affectation :", assign_data$assign_date))
+              )
+            )
+          ),
+          footer = tagList(
+            downloadButton("download_fiche", "Télécharger la fiche", class = "btn-success"),
+            modalButton("Fermer")
+          )
+        ))
+        
+        # Stocker l'index de la fiche pour le téléchargement
+        selected_fiche_index(length(current_fiches))
+        
+        showNotification(paste("Fiche générée:", result$filename), type = "default")
       }, error = function(e) {
         showNotification("Erreur lors de la génération de la fiche", type = "error")
       })
     }
   })
   
-  # Génération de toutes les fiches
+  # Téléchargement de fiche
+  output$download_fiche <- downloadHandler(
+    filename = function() {
+      req(selected_fiche_index())
+      current_fiches <- generated_fiches()
+      if (selected_fiche_index() <= length(current_fiches)) {
+        current_fiches[[selected_fiche_index()]]$filename
+      } else {
+        "fiche.docx"
+      }
+    },
+    content = function(file) {
+      req(selected_fiche_index())
+      current_fiches <- generated_fiches()
+      if (selected_fiche_index() <= length(current_fiches)) {
+        fiche <- current_fiches[[selected_fiche_index()]]
+        file.copy(fiche$filename, file)
+      }
+    }
+  )
+  
+  # Génération de toutes les fiches avec historique
   observeEvent(input$generate_all_fiches_btn, {
     current_assignments <- filter_by_user(assignments())
     
@@ -1022,14 +1364,119 @@ server <- function(input, output, session) {
     }
     
     tryCatch({
+      current_fiches <- generated_fiches()
+      
       for (i in 1:nrow(current_assignments)) {
         assign_data <- current_assignments[i, ]
-        generate_affectation_fiche(assign_data)
+        result <- generate_affectation_fiche(assign_data)
+        
+        # Ajouter à l'historique
+        new_fiche <- list(
+          filename = result$filename,
+          data = result$data,
+          timestamp = Sys.time(),
+          agent_name = assign_data$agent_name,
+          tablette = assign_data$tablette
+        )
+        current_fiches <- c(current_fiches, list(new_fiche))
       }
+      
+      generated_fiches(current_fiches)
       showNotification(paste(nrow(current_assignments), "fiches générées avec succès!"), type = "default")
     }, error = function(e) {
       showNotification("Erreur lors de la génération des fiches", type = "error")
     })
+  })
+  
+  # Réinitialisation de la sélection des fiches
+  observeEvent(input$reset_selection_btn, {
+    updateSelectInput(session, "fiche_assign_select", selected = "")
+    selected_fiche_index(NULL)
+    showNotification("Sélection réinitialisée", type = "default")
+  })
+  
+  # Output pour l'historique des fiches
+  output$fiches_history_table <- renderDT({
+    current_fiches <- generated_fiches()
+    
+    if (length(current_fiches) == 0) {
+      datatable(
+        data.frame(Message = "Aucune fiche générée"),
+        options = list(pageLength = 10, dom = 't'),
+        rownames = FALSE
+      )
+    } else {
+      # Créer un data.frame pour l'affichage
+      history_data <- data.frame(
+        Agent = sapply(current_fiches, function(x) x$agent_name),
+        Tablette = sapply(current_fiches, function(x) x$tablette),
+        Fichier = sapply(current_fiches, function(x) x$filename),
+        Date = sapply(current_fiches, function(x) format(x$timestamp, "%d/%m/%Y %H:%M")),
+        stringsAsFactors = FALSE
+      )
+      
+      datatable(
+        history_data,
+        options = list(
+          pageLength = 10,
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json')
+        ),
+        rownames = FALSE,
+        selection = 'single',
+        callback = JS("
+          table.on('click', 'tr', function() {
+            var data = table.row(this).data();
+            Shiny.setInputValue('selected_fiche_row', table.row(this).index());
+          });
+        ")
+      )
+    }
+  })
+  
+  # Gestion de la sélection dans l'historique
+  observeEvent(input$selected_fiche_row, {
+    req(input$selected_fiche_row)
+    current_fiches <- generated_fiches()
+    row_index <- input$selected_fiche_row + 1  # +1 car l'index commence à 0
+    
+    if (row_index <= length(current_fiches)) {
+      fiche <- current_fiches[[row_index]]
+      selected_fiche_index(row_index)
+      
+      # Afficher la prévisualisation
+      showModal(modalDialog(
+        title = paste("Fiche :", fiche$filename),
+        size = "l",
+        fluidRow(
+          column(12,
+            h5("Informations de l'agent :"),
+            tags$ul(
+              tags$li(paste("Nom :", fiche$data$agent_name)),
+              tags$li(paste("ID :", fiche$data$agent_id)),
+              tags$li(paste("Groupe :", fiche$data$agent_group)),
+              tags$li(paste("Fonction :", fiche$data$agent_function)),
+              tags$li(paste("Téléphone :", fiche$data$agent_phone))
+            ),
+            h5("Informations de la tablette :"),
+            tags$ul(
+              tags$li(paste("Tablette :", fiche$data$tablette)),
+              tags$li(paste("Chargeur :", fiche$data$chargeur)),
+              tags$li(paste("Powerbank :", ifelse(fiche$data$powerbank, "Oui", "Non")))
+            ),
+            h5("Informations du superviseur :"),
+            tags$ul(
+              tags$li(paste("Nom :", fiche$data$supervisor_name)),
+              tags$li(paste("Numéro :", fiche$data$supervisor_num)),
+              tags$li(paste("Date d'affectation :", fiche$data$assign_date))
+            )
+          )
+        ),
+        footer = tagList(
+          downloadButton("download_fiche", "Télécharger la fiche", class = "btn-success"),
+          modalButton("Fermer")
+        )
+      ))
+    }
   })
   
   # Observateur pour mettre à jour les choix de tablettes affectées et le powerbank
@@ -1380,6 +1827,152 @@ server <- function(input, output, session) {
     }
   })
   
+  # Gestion des superviseurs
+  
+  # Import des superviseurs
+  observeEvent(input$import_supervisors_btn, {
+    req(input$supervisors_file)
+    
+    tryCatch({
+      # Lire le fichier Excel
+      data <- read_excel(input$supervisors_file$datapath)
+      
+      # Vérifier que les colonnes requises existent
+      required_columns <- c("user_name", "user_login", "user_password")
+      missing_columns <- setdiff(required_columns, colnames(data))
+      
+      if (length(missing_columns) > 0) {
+        showNotification(
+          paste("Erreur : Colonnes manquantes :", paste(missing_columns, collapse = ", ")), 
+          type = "error"
+        )
+        return()
+      }
+      
+      # Vérifier que les données ne sont pas vides
+      if (nrow(data) == 0) {
+        showNotification("Le fichier ne contient aucune donnée", type = "error")
+        return()
+      }
+      
+      # Vérifier que les champs obligatoires ne sont pas vides
+      empty_fields <- data$user_name == "" | is.na(data$user_name) |
+                     data$user_login == "" | is.na(data$user_login) |
+                     data$user_password == "" | is.na(data$user_password)
+      
+      if (any(empty_fields)) {
+        showNotification(
+          paste("Erreur : Champs vides détectés aux lignes :", 
+                paste(which(empty_fields), collapse = ", ")), 
+          type = "error"
+        )
+        return()
+      }
+      
+      # Convertir en data.frame avec les bonnes colonnes
+      new_supervisors <- data.frame(
+        user_name = as.character(data$user_name),
+        user_login = as.character(data$user_login),
+        user_password = as.character(data$user_password),
+        stringsAsFactors = FALSE
+      )
+      
+      # Récupérer la base actuelle
+      current_supervisors <- supervisors()
+      
+      # Gérer les doublons (remplacer les anciens enregistrements)
+      if (nrow(current_supervisors) > 0) {
+        # Trouver les doublons
+        duplicates <- new_supervisors$user_login %in% current_supervisors$user_login
+        
+        if (any(duplicates)) {
+          # Supprimer les anciens enregistrements
+          current_supervisors <- current_supervisors[!current_supervisors$user_login %in% new_supervisors$user_login, ]
+          showNotification(
+            paste("Remplacement de", sum(duplicates), "superviseur(s) existant(s)"), 
+            type = "warning"
+          )
+        }
+      }
+      
+      # Ajouter les nouveaux superviseurs
+      updated_supervisors <- rbind(current_supervisors, new_supervisors)
+      supervisors(updated_supervisors)
+      
+      # Réinitialiser le champ de fichier
+      reset("supervisors_file")
+      
+      showNotification(
+        paste(nrow(new_supervisors), "superviseur(s) importé(s) avec succès!"), 
+        type = "default"
+      )
+      
+    }, error = function(e) {
+      showNotification(
+        paste("Erreur lors de l'import :", e$message), 
+        type = "error"
+      )
+    })
+  })
+  
+  # Vider la base des superviseurs
+  observeEvent(input$clear_supervisors_btn, {
+    showModal(modalDialog(
+      title = "Confirmation",
+      "Êtes-vous sûr de vouloir vider complètement la base des superviseurs ?",
+      "Cette action ne peut pas être annulée.",
+      footer = tagList(
+        modalButton("Annuler"),
+        actionButton("confirm_clear_supervisors", "Confirmer", class = "btn-danger")
+      ),
+      size = "m"
+    ))
+  })
+  
+  observeEvent(input$confirm_clear_supervisors, {
+    supervisors(data.frame(
+      user_name = character(),
+      user_login = character(),
+      user_password = character(),
+      stringsAsFactors = FALSE
+    ))
+    removeModal()
+    showNotification("Base des superviseurs vidée avec succès", type = "default")
+  })
+  
+  # Suppression individuelle de superviseur
+  observeEvent(input$supervisors_table_rows_selected, {
+    if (!is.null(input$supervisors_table_rows_selected)) {
+      showModal(modalDialog(
+        title = "Supprimer le superviseur",
+        "Voulez-vous supprimer ce superviseur de la base ?",
+        footer = tagList(
+          modalButton("Annuler"),
+          actionButton("confirm_delete_supervisor", "Supprimer", class = "btn-danger")
+        ),
+        size = "m"
+      ))
+    }
+  })
+  
+  observeEvent(input$confirm_delete_supervisor, {
+    req(input$supervisors_table_rows_selected)
+    
+    current_supervisors <- supervisors()
+    if (nrow(current_supervisors) > 0) {
+      # Supprimer la ligne sélectionnée
+      row_to_delete <- input$supervisors_table_rows_selected
+      if (row_to_delete <= nrow(current_supervisors)) {
+        updated_supervisors <- current_supervisors[-row_to_delete, ]
+        supervisors(updated_supervisors)
+        showNotification("Superviseur supprimé avec succès", type = "default")
+      }
+    }
+    removeModal()
+  })
+  
+
+  
   # Sorties des tableaux
   output$register_table <- renderDT({
     data <- filter_by_user(registered_tablets())
@@ -1510,6 +2103,33 @@ server <- function(input, output, session) {
         ),
         rownames = FALSE,
         filter = 'top'
+      )
+    }
+  })
+  
+  # Output pour le tableau des superviseurs
+  output$supervisors_table <- renderDT({
+    supervisors_data <- supervisors()
+    if (nrow(supervisors_data) == 0) {
+      datatable(
+        data.frame(Message = "Aucun superviseur enregistré"),
+        options = list(pageLength = 10, dom = 't'),
+        rownames = FALSE
+      )
+    } else {
+      # Masquer les mots de passe pour l'affichage
+      display_data <- supervisors_data
+      display_data$user_password <- paste0(rep("*", 8), collapse = "")
+      
+      datatable(
+        display_data,
+        options = list(
+          pageLength = 10,
+          language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json')
+        ),
+        rownames = FALSE,
+        colnames = c("Nom complet", "Identifiant", "Mot de passe"),
+        selection = 'single'
       )
     }
   })
