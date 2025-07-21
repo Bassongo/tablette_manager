@@ -868,79 +868,11 @@ server <- function(input, output, session) {
     save_generated_fiches(generated_fiches())
     save_supervisors(supervisors())
 
-    # Réinitialiser toutes les données
-    registered_tablets(data.frame(
-    tablette = character(),
-    chargeur = character(),
-    powerbank = logical(),
-    chargeur_ok = logical(),
-    powerbank_ok = logical(),
-    registration_date = character(),
-    etat = character(),
-    user_login = character(),
-    stringsAsFactors = FALSE
-  ))
-  
-    assignments(data.frame(
-    tablette = character(),
-    chargeur = character(),
-    powerbank = logical(),
-    agent_id = character(),
-    agent_name = character(),
-    agent_group = character(),
-    agent_function = character(),
-    agent_phone = character(),
-    agent_class = character(),
-    supervisor_name = character(),
-    supervisor_num = character(),
-    assign_date = character(),
-    user_login = character(),
-    stringsAsFactors = FALSE
-  ))
-  
-    tablet_returns(data.frame(
-    tablette = character(),
-    agent_name = character(),
-    return_reason = character(),
-    return_condition = character(),
-    return_date = character(),
-    return_notes = character(),
-    user_login = character(),
-    stringsAsFactors = FALSE
-  ))
-
-    tablet_incidents(data.frame(
-    tablette = character(),
-    agent_id = character(),
-    agent_name = character(),
-    charger_usable = logical(),
-    powerbank_usable = logical(),
-    incident_type = character(),
-    incident_state = character(),
-    incident_date = character(),
-    notes = character(),
-    user_login = character(),
-    stringsAsFactors = FALSE
-  ))
-  
-    generated_fiches(data.frame(
-      filename = character(),
-      agent_name = character(),
-    tablette = character(),
-      timestamp = character(),
-      user_login = character(),
-    stringsAsFactors = FALSE
-  ))
-    selected_fiche_index(NULL)
-    
-    # Réinitialiser l'utilisateur
+    # NE PAS réinitialiser les données réactives ici !
+    # Juste réinitialiser l'utilisateur et l'UI
     user_role(NULL)
     current_user(NULL)
-    
-    # Supprimer le bouton de déconnexion
     removeUI(selector = "#logout_button", immediate = TRUE)
-    
-    # Afficher la modal de connexion
     showModal(modalDialog(
       title = "Connexion",
       textInput("login_user", "Login"),
@@ -2421,6 +2353,15 @@ server <- function(input, output, session) {
   output$isAdmin <- reactive({ user_role() == "admin" })
   outputOptions(output, "isAdmin", suspendWhenHidden = FALSE)
 
+  observe({
+    # Masquer/afficher l'onglet Suivi des superviseurs selon le rôle
+    if (!is.null(user_role()) && user_role() == "admin") {
+      showTab("navbar", "Suivi des superviseurs")
+    } else {
+      hideTab("navbar", "Suivi des superviseurs")
+    }
+  })
+
   # Statistiques globales pour l'onglet Suivi des superviseurs
   output$nb_superviseurs <- renderUI({
     sup <- supervisors()
@@ -2646,6 +2587,28 @@ server <- function(input, output, session) {
     ))
   })
 
+  # Ajout de logs pour debug
+  observe({
+    cat("[DEBUG] registered_tablets : ", nrow(registered_tablets()), " lignes\n")
+    cat("[DEBUG] assignments : ", nrow(assignments()), " lignes\n")
+    cat("[DEBUG] generated_fiches : ", nrow(generated_fiches()), " lignes\n")
+  })
+
+  # Correction de la mise à jour des stats et visualisation
+  observe({
+    req(user_role(), current_user())
+    if (user_role() == "admin") {
+      reg_data <- registered_tablets()
+      assign_data <- assignments()
+      returns_data <- tablet_returns()
+    } else {
+      reg_data <- filter_by_user(registered_tablets())
+      assign_data <- filter_by_user(assignments())
+      returns_data <- filter_by_user(tablet_returns())
+    }
+    # Mettre à jour les stats et la visualisation ici
+    # ... (ajouter le code de calcul et d'affichage des stats)
+  })
 
 }
 

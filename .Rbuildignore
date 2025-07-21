@@ -1,30 +1,33 @@
 # Fichiers à ignorer lors du build R
 # Fichiers de test
-test_sqlite.R
-test_app_demarrage.R
-create_test_files.R
-GUIDE_TEST.md
+^test_.*\.R$
+^create_test_files\.R$
+^GUIDE_TEST\.md$
 
 # Fichiers Excel de test
-superviseurs_test.xlsx
-tablettes_test.xlsx
-agents_test.xlsx
+^agents_test\.xlsx$
+^tablettes_test\.xlsx$
+^superviseurs_test\.xlsx$
 
 # Fichiers de données Excel existants
-agents (1).xlsx
-tablettes (1).xlsx
-Superviseur.xlsx
+^agents \(1\).xlsx$
+^tablettes \(1\).xlsx$
+^Superviseur\.xlsx$
 
 # Fichiers de fiches générées
-Fiche_*.docx
+^Fiche_.*\.docx$
 
 # Base de données SQLite (sera créée automatiquement)
-tablette_manager.sqlite
+^tablette_manager\.sqlite$
 
 # Fichiers système
-nul
-Thumbs.db
-.DS_Store
+^nul$
+^Thumbs\.db$
+^.DS_Store$
+^requirements\.txt$
+^rsconnect/
+^www/
+^data/.*\.rds$
 
 # Fichiers temporaires
 *.tmp

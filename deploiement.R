@@ -1,76 +1,49 @@
-# ===== DÉPLOIEMENT APPLICATION GESTION DES TABLETTES =====
+# deploiement.R — Déploiement complet de l’application Shiny tablette_manager
 
-# 1. Charger les bibliothèques nécessaires
-library(rsconnect)
-library(RSQLite)
-library(DBI)
+cat("\n=== DÉPLOIEMENT DE L'APPLICATION SHINY ===\n")
 
-# 2. Vérifier que nous sommes dans le bon répertoire
-cat("Répertoire actuel:", getwd(), "\n")
-cat("Fichiers présents:", list.files(), "\n")
+# 1. Vérification du dossier de travail
+projet_dir <- getwd()
+cat("Répertoire courant :", projet_dir, "\n")
 
-# 3. Vérifier la configuration shinyapps.io
-cat("\n=== VÉRIFICATION CONFIGURATION ===\n")
-accounts <- rsconnect::accounts()
-if (length(accounts) > 0) {
-  cat("✅ Compte(s) configuré(s):\n")
-  print(accounts)
+# 2. Vérification du dossier data/
+if (!dir.exists("data")) {
+  dir.create("data")
+  cat("Dossier 'data/' créé.\n")
 } else {
-  cat("❌ Aucun compte configuré\n")
-  cat("Utilisez: rsconnect::setAccountInfo() pour configurer\n")
+  cat("Dossier 'data/' déjà présent.\n")
 }
 
-# 4. Test rapide de l'application
-cat("\n=== TEST RAPIDE ===\n")
-tryCatch({
-  source("app.R", echo = FALSE)
-  cat("✅ Application chargée sans erreur\n")
-}, error = function(e) {
-  cat("❌ Erreur lors du chargement:", e$message, "\n")
-  stop("Corriger l'erreur avant le déploiement")
-})
-
-# 5. Déploiement avec rsconnect::deployApp
-cat("\n=== DÉPLOIEMENT ===\n")
-tryCatch({
-  cat("Déploiement en cours...\n")
-  
-  # Déployer avec un nom spécifique
-  rsconnect::deployApp(
-    appName = "E-tablette_manager",
-    appTitle = "Gestion des Tablettes",
-    appFiles = c("app.R", "www/", "Fiche_Affectation_Materiel.docx"),
-    forceUpdate = TRUE
-  )
-  
-  cat("✅ Déploiement réussi!\n")
-  
-}, error = function(e) {
-  cat("❌ Erreur lors du déploiement:", e$message, "\n")
-  
-  # Essayer un déploiement simple
-  cat("Tentative de déploiement simple...\n")
-  tryCatch({
-    rsconnect::deployApp(forceUpdate = TRUE)
-    cat("✅ Déploiement simple réussi!\n")
-  }, error = function(e2) {
-    cat("❌ Échec du déploiement simple:", e2$message, "\n")
-  })
-})
-
-# 6. Vérification post-déploiement
-cat("\n=== VÉRIFICATION ===\n")
-tryCatch({
-  apps <- rsconnect::applications()
-  if (nrow(apps) > 0) {
-    cat("✅ Applications déployées:\n")
-    print(apps[, c("name", "url", "status")])
+# 3. Vérification des fichiers .rds nécessaires
+fichiers_rds <- c(
+  "supervisors.rds", "registered_tablets.rds", "assignments.rds",
+  "tablet_returns.rds", "tablet_incidents.rds", "generated_fiches.rds"
+)
+for (f in fichiers_rds) {
+  path <- file.path("data", f)
+  if (!file.exists(path)) {
+    saveRDS(data.frame(), path)
+    cat("Fichier créé (vide) :", path, "\n")
   } else {
-    cat("⚠️ Aucune application trouvée\n")
+    cat("Fichier trouvé :", path, "\n")
   }
-}, error = function(e) {
-  cat("❌ Erreur lors de la vérification:", e$message, "\n")
-})
+}
 
-cat("\n=== FIN DU DÉPLOIEMENT ===\n")
-cat("Si le déploiement est réussi, votre application est accessible sur shinyapps.io\n")
+# 4. Vérification du .Rbuildignore
+if (file.exists(".Rbuildignore")) {
+  cat(".Rbuildignore présent.\n")
+} else {
+  cat("⚠️  .Rbuildignore manquant !\n")
+}
+
+# 5. Liste des fichiers > 10 Mo à surveiller
+cat("\nFichiers > 10 Mo dans le projet :\n")
+big_files <- list.files(projet_dir, recursive = TRUE, full.names = TRUE)
+big_files <- big_files[file.info(big_files)$size > 10*1024*1024]
+if (length(big_files) > 0) {
+  print(big_files)
+  cat("⚠️  Supprime ou exclue ces fichiers du déploiement si inutiles !\n")
+} else {
+  cat("Aucun fichier volumineux détecté.\n")
+}
+
