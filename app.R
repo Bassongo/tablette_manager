@@ -5,69 +5,39 @@ library(readxl)
 library(shinyjs)
 library(bslib)
 library(shinyWidgets)
-library(googlesheets4)
-cat("\n--- PERSISTANCE VIA GOOGLE SHEETS ---\n")
-cat("Authentification avec le fichier : tablette-manager-75e3b8ac3aa9.json\n")
-gs4_auth(path = "tablette-manager-75e3b8ac3aa9.json")
-gsheet_id <- "1CpvIE8SAQpDdrOLTMGwh2597QMFkqkjXD31NONRyzcw"
+if (!dir.exists("data")) dir.create("data")
 
-# --- FONCTIONS GOOGLE SHEETS ---
-# Supervisors
-download_or_empty <- function(sheet, col_types = NULL) {
-  tryCatch(
-    googlesheets4::read_sheet(gsheet_id, sheet = sheet, col_types = col_types),
-    error = function(e) data.frame()
-  )
+# --- PERSISTANCE LOCALE ---
+load_data <- function(name) {
+  path <- file.path("data", paste0(name, ".rds"))
+  if (file.exists(path)) {
+    readRDS(path)
+  } else {
+    data.frame()
+  }
 }
 
-save_or_create <- function(data, sheet) {
-  tryCatch({
-    googlesheets4::sheet_write(data, gsheet_id, sheet = sheet)
-    TRUE
-  }, error = function(e) FALSE)
+save_data <- function(df, name) {
+  saveRDS(df, file.path("data", paste0(name, ".rds")))
 }
 
-load_supervisors <- function() {
-  download_or_empty("supervisors")
-}
-save_supervisors <- function(data) {
-  save_or_create(data, "supervisors")
-}
+load_supervisors <- function() load_data("supervisors")
+save_supervisors <- function(data) save_data(data, "supervisors")
 
-load_registered_tablets <- function() {
-  download_or_empty("registered_tablets")
-}
-save_registered_tablets <- function(data) {
-  save_or_create(data, "registered_tablets")
-}
+load_registered_tablets <- function() load_data("registered_tablets")
+save_registered_tablets <- function(data) save_data(data, "registered_tablets")
 
-load_assignments <- function() {
-  download_or_empty("assignments")
-}
-save_assignments <- function(data) {
-  save_or_create(data, "assignments")
-}
+load_assignments <- function() load_data("assignments")
+save_assignments <- function(data) save_data(data, "assignments")
 
-load_tablet_returns <- function() {
-  download_or_empty("tablet_returns")
-}
-save_tablet_returns <- function(data) {
-  save_or_create(data, "tablet_returns")
-}
+load_tablet_returns <- function() load_data("tablet_returns")
+save_tablet_returns <- function(data) save_data(data, "tablet_returns")
 
-load_tablet_incidents <- function() {
-  download_or_empty("tablet_incidents")
-}
-save_tablet_incidents <- function(data) {
-  save_or_create(data, "tablet_incidents")
-}
+load_tablet_incidents <- function() load_data("tablet_incidents")
+save_tablet_incidents <- function(data) save_data(data, "tablet_incidents")
 
-load_generated_fiches <- function() {
-  download_or_empty("generated_fiches")
-}
-save_generated_fiches <- function(data) {
-  save_or_create(data, "generated_fiches")
-}
+load_generated_fiches <- function() load_data("generated_fiches")
+save_generated_fiches <- function(data) save_data(data, "generated_fiches")
 
 # Fonction pour analyser les placeholders dans le template
 analyze_document_variables <- function(template_path) {
@@ -114,13 +84,6 @@ generate_affectation_fiche <- function(assign_data) {
   
   print(doc, target = filename)
   return(list(filename = filename, data = assign_data))
-}
-# === UI DE DEBUG GOOGLE SHEETS ===
-debug_ui <- function() {
-  tagList(
-    actionButton("debug_gsheets", "Diagnostic Google Sheets", icon = icon("bug")),
-    verbatimTextOutput("debug_gsheets_out")
-  )
 }
 # Interface utilisateur principale
 ui <- navbarPage(
@@ -783,18 +746,6 @@ ui <- navbarPage(
             h2("Visualisations", style = "color: white;"),
             plotOutput("plot_fiches_par_superviseur"),
             plotOutput("plot_evolution_fiches")
-          )
-        )
-      )
-    ),
-    # === PANNEAU DIAGNOSTIC GOOGLE SHEETS (ADMIN) ===
-    conditionalPanel(
-      condition = "output.isAdmin == true",
-      fluidRow(
-        column(12,
-          div(style = "margin-top: 30px; margin-bottom: 30px;",
-            h3("Diagnostic Google Sheets", style = "color: #c82333; font-weight: bold;"),
-            debug_ui()
           )
         )
       )
@@ -2695,56 +2646,6 @@ server <- function(input, output, session) {
     ))
   })
 
-  # === MODE DIAGNOSTIC GOOGLE SHEETS (ADMIN) ===
-  debug_gsheets <- function() {
-    cat("\n[TEST] Authentification compte de service...\n")
-    tryCatch({
-      gs4_auth(path = "tablette-manager-75e3b8ac3aa9.json")
-      cat("[OK] Authentification réussie.\n")
-    }, error = function(e) cat("[ERREUR] Authentification : ", e$message, "\n"))
-
-    cat("[TEST] Lecture d'un onglet existant ('supervisors')...\n")
-    res1 <- tryCatch({
-      d <- googlesheets4::read_sheet(gsheet_id, sheet = "supervisors"); cat("[OK] Lecture réussie (supervisors).\n"); d
-    }, error = function(e) {cat("[ERREUR] Lecture supervisors : ", e$message, "\n"); NULL})
-
-    cat("[TEST] Lecture d'un onglet inexistant ('test_inexistant')...\n")
-    res2 <- tryCatch({
-      d <- googlesheets4::read_sheet(gsheet_id, sheet = "test_inexistant"); cat("[OK] Lecture réussie (test_inexistant).\n"); d
-    }, error = function(e) {cat("[ERREUR] Lecture test_inexistant : ", e$message, "\n"); NULL})
-
-    cat("[TEST] Ecriture dans un nouvel onglet ('test_debug')...\n")
-    test_data <- data.frame(a = 1:3, b = c("x", "y", "z"))
-    res3 <- tryCatch({
-      googlesheets4::sheet_write(test_data, gsheet_id, sheet = "test_debug"); cat("[OK] Ecriture test_debug réussie.\n"); TRUE
-    }, error = function(e) {cat("[ERREUR] Ecriture test_debug : ", e$message, "\n"); FALSE})
-
-    cat("[TEST] Droits du compte de service...\n")
-    # On tente d'écrire dans un onglet protégé (si existant)
-    res4 <- tryCatch({
-      googlesheets4::sheet_write(test_data, gsheet_id, sheet = "onglet_protege"); cat("[OK] Ecriture onglet_protege réussie.\n"); TRUE
-    }, error = function(e) {cat("[ERREUR] Droits/écriture onglet_protege : ", e$message, "\n"); FALSE})
-
-    list(auth = !is.null(gs4_token()),
-         read_supervisors = !is.null(res1),
-         read_inexistant = !is.null(res2),
-         write_debug = res3,
-         write_protected = res4)
-  }
-
-  # Ajout d'un bouton admin pour lancer le diagnostic
-  debug_results <- reactiveVal(NULL)
-
-  observeEvent(input$debug_gsheets, {
-    debug_results(debug_gsheets())
-  })
-
-  
-
-  output$debug_gsheets_out <- renderPrint({
-    req(debug_results())
-    debug_results()
-  })
 
 }
 
