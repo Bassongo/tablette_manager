@@ -1,0 +1,10 @@
+name: tablette_manager
+title:
+username: bassongo
+account: bassongo
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15061427
+bundleId: 10597714
+url: https://bassongo.shinyapps.io/tablette_manager/
+version: 1

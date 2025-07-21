@@ -5,133 +5,68 @@ library(readxl)
 library(shinyjs)
 library(bslib)
 library(shinyWidgets)
-library(DBI)
-library(RSQLite)
+library(googlesheets4)
+cat("\n--- PERSISTANCE VIA GOOGLE SHEETS ---\n")
+cat("Authentification avec le fichier : tablette-manager-75e3b8ac3aa9.json\n")
+gs4_auth(path = "tablette-manager-75e3b8ac3aa9.json")
+gsheet_id <- "1CpvIE8SAQpDdrOLTMGwh2597QMFkqkjXD31NONRyzcw"
 
-# Path to SQLite database
-db_path <- "tablette_manager.sqlite"
-
-# Establish a connection to the database
-get_db_connection <- function() {
-  dbConnect(RSQLite::SQLite(), db_path)
+# --- FONCTIONS GOOGLE SHEETS ---
+# Supervisors
+download_or_empty <- function(sheet, col_types = NULL) {
+  tryCatch(
+    googlesheets4::read_sheet(gsheet_id, sheet = sheet, col_types = col_types),
+    error = function(e) data.frame()
+  )
 }
 
-# Initialize database and tables
-init_database <- function() {
-  db <- get_db_connection()
-  on.exit(dbDisconnect(db))
-
-  dbExecute(db, "CREATE TABLE IF NOT EXISTS supervisors (user_name TEXT, user_login TEXT PRIMARY KEY, user_password TEXT)")
-  dbExecute(db, paste0(
-    "CREATE TABLE IF NOT EXISTS registered_tablets (",
-    "tablette TEXT PRIMARY KEY, chargeur TEXT, powerbank INTEGER, chargeur_ok INTEGER, ",
-    "powerbank_ok INTEGER, registration_date TEXT, etat TEXT, user_login TEXT)"))
-  dbExecute(db, paste0(
-    "CREATE TABLE IF NOT EXISTS assignments (",
-    "tablette TEXT, chargeur TEXT, powerbank INTEGER, agent_id TEXT, agent_name TEXT, agent_group TEXT, agent_function TEXT, agent_phone TEXT, agent_class TEXT, supervisor_name TEXT, supervisor_num TEXT, assign_date TEXT, user_login TEXT)"))
-  dbExecute(db, paste0(
-    "CREATE TABLE IF NOT EXISTS tablet_returns (",
-    "tablette TEXT, agent_id TEXT, agent_name TEXT, charger_retourne TEXT, powerbank_retourne INTEGER, return_reason TEXT, return_condition TEXT, return_date TEXT, return_notes TEXT, user_login TEXT)"))
-  dbExecute(db, paste0(
-    "CREATE TABLE IF NOT EXISTS tablet_incidents (",
-    "tablette TEXT, agent_id TEXT, agent_name TEXT, charger_usable INTEGER, powerbank_usable INTEGER, incident_type TEXT, incident_state TEXT, incident_date TEXT, notes TEXT, user_login TEXT)"))
-  dbExecute(db, "CREATE TABLE IF NOT EXISTS generated_fiches (filename TEXT, agent_name TEXT, tablette TEXT, timestamp TEXT, user_login TEXT)")
-}
-
-save_supervisors <- function(data) {
-  db <- get_db_connection()
-  on.exit(dbDisconnect(db))
-  dbExecute(db, "DELETE FROM supervisors")
-  if (nrow(data) > 0) dbWriteTable(db, "supervisors", data, append = TRUE)
+save_or_create <- function(data, sheet) {
+  tryCatch({
+    googlesheets4::sheet_write(data, gsheet_id, sheet = sheet)
+    TRUE
+  }, error = function(e) FALSE)
 }
 
 load_supervisors <- function() {
-  db <- get_db_connection()
-  on.exit(dbDisconnect(db))
-  if (!"supervisors" %in% dbListTables(db)) {
-    return(data.frame(user_name = character(), user_login = character(), user_password = character(), stringsAsFactors = FALSE))
-  }
-  dbReadTable(db, "supervisors")
+  download_or_empty("supervisors")
 }
-
-save_registered_tablets <- function(data) {
-  db <- get_db_connection()
-  on.exit(dbDisconnect(db))
-  dbExecute(db, "DELETE FROM registered_tablets")
-  if (nrow(data) > 0) dbWriteTable(db, "registered_tablets", data, append = TRUE)
+save_supervisors <- function(data) {
+  save_or_create(data, "supervisors")
 }
 
 load_registered_tablets <- function() {
-  db <- get_db_connection()
-  on.exit(dbDisconnect(db))
-  if (!"registered_tablets" %in% dbListTables(db)) {
-    return(data.frame(tablette = character(), chargeur = character(), powerbank = logical(), chargeur_ok = logical(), powerbank_ok = logical(), registration_date = character(), etat = character(), user_login = character(), stringsAsFactors = FALSE))
-  }
-  dbReadTable(db, "registered_tablets")
+  download_or_empty("registered_tablets")
 }
-
-save_assignments <- function(data) {
-  db <- get_db_connection()
-  on.exit(dbDisconnect(db))
-  dbExecute(db, "DELETE FROM assignments")
-  if (nrow(data) > 0) dbWriteTable(db, "assignments", data, append = TRUE)
+save_registered_tablets <- function(data) {
+  save_or_create(data, "registered_tablets")
 }
 
 load_assignments <- function() {
-  db <- get_db_connection()
-  on.exit(dbDisconnect(db))
-  if (!"assignments" %in% dbListTables(db)) {
-    return(data.frame(tablette = character(), chargeur = character(), powerbank = logical(), agent_id = character(), agent_name = character(), agent_group = character(), agent_function = character(), agent_phone = character(), agent_class = character(), supervisor_name = character(), supervisor_num = character(), assign_date = character(), user_login = character(), stringsAsFactors = FALSE))
-  }
-  dbReadTable(db, "assignments")
+  download_or_empty("assignments")
 }
-
-save_tablet_returns <- function(data) {
-  db <- get_db_connection()
-  on.exit(dbDisconnect(db))
-  dbExecute(db, "DELETE FROM tablet_returns")
-  if (nrow(data) > 0) dbWriteTable(db, "tablet_returns", data, append = TRUE)
+save_assignments <- function(data) {
+  save_or_create(data, "assignments")
 }
 
 load_tablet_returns <- function() {
-  db <- get_db_connection()
-  on.exit(dbDisconnect(db))
-  if (!"tablet_returns" %in% dbListTables(db)) {
-    return(data.frame(tablette = character(), agent_id = character(), agent_name = character(), charger_retourne = character(), powerbank_retourne = logical(), return_reason = character(), return_condition = character(), return_date = character(), return_notes = character(), user_login = character(), stringsAsFactors = FALSE))
-  }
-  dbReadTable(db, "tablet_returns")
+  download_or_empty("tablet_returns")
 }
-
-save_tablet_incidents <- function(data) {
-  db <- get_db_connection()
-  on.exit(dbDisconnect(db))
-  dbExecute(db, "DELETE FROM tablet_incidents")
-  if (nrow(data) > 0) dbWriteTable(db, "tablet_incidents", data, append = TRUE)
+save_tablet_returns <- function(data) {
+  save_or_create(data, "tablet_returns")
 }
 
 load_tablet_incidents <- function() {
-  db <- get_db_connection()
-  on.exit(dbDisconnect(db))
-  if (!"tablet_incidents" %in% dbListTables(db)) {
-    return(data.frame(tablette = character(), agent_id = character(), agent_name = character(), charger_usable = logical(), powerbank_usable = logical(), incident_type = character(), incident_state = character(), incident_date = character(), notes = character(), user_login = character(), stringsAsFactors = FALSE))
-  }
-  dbReadTable(db, "tablet_incidents")
+  download_or_empty("tablet_incidents")
 }
-
-save_generated_fiches <- function(data) {
-  db <- get_db_connection()
-  on.exit(dbDisconnect(db))
-  dbExecute(db, "DELETE FROM generated_fiches")
-  if (nrow(data) > 0) dbWriteTable(db, "generated_fiches", data, append = TRUE)
+save_tablet_incidents <- function(data) {
+  save_or_create(data, "tablet_incidents")
 }
 
 load_generated_fiches <- function() {
-  db <- get_db_connection()
-  on.exit(dbDisconnect(db))
-  if (!"generated_fiches" %in% dbListTables(db)) {
-    return(data.frame(filename = character(), agent_name = character(), tablette = character(), timestamp = character(), user_login = character(), stringsAsFactors = FALSE))
-  }
-  dbReadTable(db, "generated_fiches")
+  download_or_empty("generated_fiches")
+}
+save_generated_fiches <- function(data) {
+  save_or_create(data, "generated_fiches")
 }
 
 # Fonction pour analyser les placeholders dans le template
@@ -180,7 +115,13 @@ generate_affectation_fiche <- function(assign_data) {
   print(doc, target = filename)
   return(list(filename = filename, data = assign_data))
 }
-
+# === UI DE DEBUG GOOGLE SHEETS ===
+debug_ui <- function() {
+  tagList(
+    actionButton("debug_gsheets", "Diagnostic Google Sheets", icon = icon("bug")),
+    verbatimTextOutput("debug_gsheets_out")
+  )
+}
 # Interface utilisateur principale
 ui <- navbarPage(
   id = "navbar",
@@ -702,68 +643,68 @@ ui <- navbarPage(
     tabsetPanel(
       tabPanel(
         "Tableau de bord",
-        fluidRow(
-          column(
-            12,
-            card(
-              card_header("État général des tablettes", class = "card-header"),
-              card_body(
-                fluidRow(
-                  column(3,
-                    div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border-radius: 10px; color: white;",
-                        h3(textOutput("available_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
-                        p("Tablettes disponibles", style = "margin: 5px 0 0 0;")
-                    )
-                  ),
-                  column(3,
-                    div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); border-radius: 10px; color: white;",
-                        h3(textOutput("assigned_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
-                        p("Tablettes affectées", style = "margin: 5px 0 0 0;")
-                    )
-                  ),
-                  column(3,
-                    div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); border-radius: 10px; color: white;",
-                        h3(textOutput("returned_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
-                        p("Tablettes en retour", style = "margin: 5px 0 0 0;")
-                    )
-                  ),
-                  column(3,
-                    div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 10px; color: white;",
-                        h3(textOutput("out_of_service_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
-                        p("Tablettes hors service", style = "margin: 5px 0 0 0;")
-                    )
-                  )
+    fluidRow(
+      column(
+        12,
+        card(
+          card_header("État général des tablettes", class = "card-header"),
+          card_body(
+            fluidRow(
+              column(3,
+                div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); border-radius: 10px; color: white;",
+                    h3(textOutput("available_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
+                    p("Tablettes disponibles", style = "margin: 5px 0 0 0;")
                 )
-              )
-            )
-          )
-        ),
-        fluidRow(
-          column(
-            12,
-            card(
-              card_header("Tableau de suivi détaillé", class = "card-header"),
-              card_body(
-                fluidRow(
-                  column(12,
-                    div(style = "margin-bottom: 15px;",
-                        h5("Filtres", style = "color: var(--primary-color); font-weight: 600;"),
-                        fluidRow(
-                          column(3, selectInput("status_filter", "Statut", choices = c("Tous", "Disponible", "Affectée", "En retour", "Hors service"))),
-                          column(3, selectInput("group_filter", "Groupe", choices = c("Tous"))),
-                          column(3, selectInput("function_filter", "Fonction", choices = c("Tous", "Enquêteur", "Superviseur"))),
-                          column(3, actionBttn("apply_filters_btn", "Appliquer les filtres", style = "fill", color = "primary", class = "blue-btn"))
-                        )
-                      )
-                    ),
-                    DTOutput("tracking_table")
-                  )
+              ),
+              column(3,
+                div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); border-radius: 10px; color: white;",
+                    h3(textOutput("assigned_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
+                    p("Tablettes affectées", style = "margin: 5px 0 0 0;")
+                )
+              ),
+              column(3,
+                div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); border-radius: 10px; color: white;",
+                    h3(textOutput("returned_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
+                    p("Tablettes en retour", style = "margin: 5px 0 0 0;")
+                )
+              ),
+              column(3,
+                div(style = "text-align: center; padding: 20px; background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 10px; color: white;",
+                    h3(textOutput("out_of_service_tablets_count"), style = "margin: 0; font-size: 2.5rem;"),
+                    p("Tablettes hors service", style = "margin: 5px 0 0 0;")
                 )
               )
             )
           )
         )
-      ),
+      )
+    ),
+    fluidRow(
+      column(
+        12,
+        card(
+          card_header("Tableau de suivi détaillé", class = "card-header"),
+          card_body(
+            fluidRow(
+              column(12,
+                div(style = "margin-bottom: 15px;",
+                    h5("Filtres", style = "color: var(--primary-color); font-weight: 600;"),
+                    fluidRow(
+                      column(3, selectInput("status_filter", "Statut", choices = c("Tous", "Disponible", "Affectée", "En retour", "Hors service"))),
+                      column(3, selectInput("group_filter", "Groupe", choices = c("Tous"))),
+                      column(3, selectInput("function_filter", "Fonction", choices = c("Tous", "Enquêteur", "Superviseur"))),
+                      column(3, actionBttn("apply_filters_btn", "Appliquer les filtres", style = "fill", color = "primary", class = "blue-btn"))
+                    )
+                  )
+                ),
+                DTOutput("tracking_table")
+                  )
+              )
+            )
+          )
+        )
+      )
+    ),
       tabPanel(
         "Gestion des Superviseurs",
         fluidRow(
@@ -781,20 +722,18 @@ ui <- navbarPage(
                       tags$li("user_password : Mot de passe")
                     )
                 ),
-                div(style = "margin-bottom: 20px;",
+                div(style = "margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;",
                     fileInput(
                       "supervisors_file",
                       "Fichier Excel des superviseurs",
                       accept = c(".xlsx", ".xls")
-                    )
-                ),
-                div(style = "margin-bottom: 20px;",
-                    actionBttn("import_supervisors_btn", "Importer les superviseurs", 
-                              style = "fill", color = "success", class = "blue-btn")
-                ),
-                div(style = "margin-bottom: 20px;",
+                    ),
+                    actionButton("import_supervisors_btn", "Importer les superviseurs", 
+                              class = "btn btn-success blue-btn", style = "margin-left: 8px; height: 38px;"),
                     actionBttn("clear_supervisors_btn", "Vider la base des superviseurs", 
-                              style = "fill", color = "danger", class = "blue-btn")
+                              style = "fill", color = "danger", class = "blue-btn", size = "sm"),
+                    actionBttn("reset_all_btn", "Réinitialiser toute l'application", 
+                              style = "fill", color = "danger", class = "blue-btn", size = "sm")
                 )
               )
             )
@@ -810,14 +749,61 @@ ui <- navbarPage(
           )
         )
       )
+    ),  # <-- VIRGULE ici pour séparer les onglets
+    # NOUVEL ONGLET SUIVI DES SUPERVISEURS (admin uniquement)
+    tabPanel(
+      "Suivi des superviseurs",
+      conditionalPanel(
+        condition = "output.isAdmin == true",
+        fluidRow(
+          column(12,
+            h2("Statistiques globales", style = "color: white;"),
+            fluidRow(
+              column(3, uiOutput("nb_superviseurs")),
+              column(3, uiOutput("nb_fiches_total")),
+              column(3, uiOutput("nb_fiches_transferees")),
+              column(3, uiOutput("nb_fiches_en_attente"))
+            )
+          )
+        ),
+        fluidRow(
+          column(12,
+            h2("Alertes", style = "color: white;"),
+            uiOutput("alertes_superviseurs")
+          )
+        ),
+        fluidRow(
+          column(12,
+            h2("Statistiques par superviseur", style = "color: white;"),
+            DT::dataTableOutput("stats_par_superviseur")
+          )
+        ),
+        fluidRow(
+          column(12,
+            h2("Visualisations", style = "color: white;"),
+            plotOutput("plot_fiches_par_superviseur"),
+            plotOutput("plot_evolution_fiches")
+          )
+        )
+      )
+    ),
+    # === PANNEAU DIAGNOSTIC GOOGLE SHEETS (ADMIN) ===
+    conditionalPanel(
+      condition = "output.isAdmin == true",
+      fluidRow(
+        column(12,
+          div(style = "margin-top: 30px; margin-bottom: 30px;",
+            h3("Diagnostic Google Sheets", style = "color: #c82333; font-weight: bold;"),
+            debug_ui()
+          )
+        )
+      )
     )
   )
 
 # Serveur
 server <- function(input, output, session) {
-
-  init_database()
-
+  
   # Données réactives
   supervisors <- reactiveVal(load_supervisors())
   user_role <- reactiveVal(NULL)
@@ -849,10 +835,18 @@ server <- function(input, output, session) {
   filter_by_user <- function(data) {
     role <- user_role()
     if (!is.null(role) && role == "supervisor") {
+      # Les superviseurs ne voient que leurs propres actions
       data[data$user_login == current_user(), , drop = FALSE]
     } else {
+      # L'administrateur voit toutes les données
       data
     }
+  }
+  
+  # Nouvelle fonction pour l'administrateur qui voit tout
+  get_data_for_admin <- function(data) {
+    # L'administrateur voit toutes les données sans filtrage
+    data
   }
   
 
@@ -925,67 +919,67 @@ server <- function(input, output, session) {
 
     # Réinitialiser toutes les données
     registered_tablets(data.frame(
-      tablette = character(),
-      chargeur = character(),
-      powerbank = logical(),
-      chargeur_ok = logical(),
-      powerbank_ok = logical(),
-      registration_date = character(),
-      etat = character(),
-      user_login = character(),
-      stringsAsFactors = FALSE
-    ))
-    
+    tablette = character(),
+    chargeur = character(),
+    powerbank = logical(),
+    chargeur_ok = logical(),
+    powerbank_ok = logical(),
+    registration_date = character(),
+    etat = character(),
+    user_login = character(),
+    stringsAsFactors = FALSE
+  ))
+  
     assignments(data.frame(
-      tablette = character(),
-      chargeur = character(),
-      powerbank = logical(),
-      agent_id = character(),
-      agent_name = character(),
-      agent_group = character(),
-      agent_function = character(),
-      agent_phone = character(),
-      agent_class = character(),
-      supervisor_name = character(),
-      supervisor_num = character(),
-      assign_date = character(),
-      user_login = character(),
-      stringsAsFactors = FALSE
-    ))
-    
+    tablette = character(),
+    chargeur = character(),
+    powerbank = logical(),
+    agent_id = character(),
+    agent_name = character(),
+    agent_group = character(),
+    agent_function = character(),
+    agent_phone = character(),
+    agent_class = character(),
+    supervisor_name = character(),
+    supervisor_num = character(),
+    assign_date = character(),
+    user_login = character(),
+    stringsAsFactors = FALSE
+  ))
+  
     tablet_returns(data.frame(
-      tablette = character(),
-      agent_name = character(),
-      return_reason = character(),
-      return_condition = character(),
-      return_date = character(),
-      return_notes = character(),
-      user_login = character(),
-      stringsAsFactors = FALSE
-    ))
-    
+    tablette = character(),
+    agent_name = character(),
+    return_reason = character(),
+    return_condition = character(),
+    return_date = character(),
+    return_notes = character(),
+    user_login = character(),
+    stringsAsFactors = FALSE
+  ))
+
     tablet_incidents(data.frame(
-      tablette = character(),
-      agent_id = character(),
-      agent_name = character(),
-      charger_usable = logical(),
-      powerbank_usable = logical(),
-      incident_type = character(),
-      incident_state = character(),
-      incident_date = character(),
-      notes = character(),
-      user_login = character(),
-      stringsAsFactors = FALSE
-    ))
-    
+    tablette = character(),
+    agent_id = character(),
+    agent_name = character(),
+    charger_usable = logical(),
+    powerbank_usable = logical(),
+    incident_type = character(),
+    incident_state = character(),
+    incident_date = character(),
+    notes = character(),
+    user_login = character(),
+    stringsAsFactors = FALSE
+  ))
+  
     generated_fiches(data.frame(
       filename = character(),
       agent_name = character(),
-      tablette = character(),
+    tablette = character(),
       timestamp = character(),
       user_login = character(),
-      stringsAsFactors = FALSE
-    ))
+    stringsAsFactors = FALSE
+  ))
     selected_fiche_index(NULL)
     
     # Réinitialiser l'utilisateur
@@ -1015,16 +1009,16 @@ server <- function(input, output, session) {
       user_idx <- which(sup$user_login == current_user())
       user_display_name <- if (length(user_idx) > 0) sup$user_name[user_idx] else current_user()
       
-      HTML(paste0("<h2>Bienvenue ", user_display_name, "</h2>",
-                  "<p>Vous \u00eates connect\u00e9 en tant que superviseur. " ,
+      HTML(paste0("<h2 style='color: white;'>Bienvenue ", user_display_name, "</h2>",
+                  "<p style='color: white; font-size: 1.2em;'>Vous \u00eates connect\u00e9 en tant que superviseur. " ,
                   "Vous ne voyez que vos propres actions.</p>"))
     } else {
-      HTML(paste0("<h2>Bienvenue Administrateur</h2>",
-                  "<p>Vous \u00eates connect\u00e9 en tant qu'administrateur." ,
-                  "</p>"))
+      HTML(paste0("<h2 style='color: white;'>Bienvenue Administrateur</h2>",
+                  "<p style='color: white; font-size: 1.2em;'>Vous \u00eates connect\u00e9 en tant qu'administrateur. " ,
+                  "Vous voyez toutes les actions de tous les utilisateurs.</p>"))
     }
   })
-
+  
   # Observateurs pour les boutons de scan QR
   observeEvent(input$scan_tablet_btn, {
     showModal(modalDialog(
@@ -1108,6 +1102,7 @@ server <- function(input, output, session) {
     current_tablets <- registered_tablets()
     updated_tablets <- rbind(current_tablets, new_tablet)
     registered_tablets(updated_tablets)
+    save_registered_tablets(updated_tablets)  # Ajout de la sauvegarde manquante
     
     # Réinitialiser les champs
     updateTextInput(session, "reg_tab_num", value = "")
@@ -1157,8 +1152,8 @@ server <- function(input, output, session) {
       
       # Conversion 'vrai'/'faux' en logique pour powerbank
       if ("powerbank" %in% colnames(data)) {
-        if (is.character(data$powerbank)) {
-          data$powerbank <- tolower(data$powerbank)
+      if (is.character(data$powerbank)) {
+        data$powerbank <- tolower(data$powerbank)
           data$powerbank <- ifelse(data$powerbank %in% c('vrai', 'true', 'oui', 'yes', '1'), TRUE, FALSE)
         } else if (is.numeric(data$powerbank)) {
           data$powerbank <- as.logical(data$powerbank)
@@ -1285,8 +1280,8 @@ server <- function(input, output, session) {
       
       # Conversion powerbank pour les tablettes
       if ("powerbank" %in% colnames(tablets_data)) {
-        if (is.character(tablets_data$powerbank)) {
-          tablets_data$powerbank <- tolower(tablets_data$powerbank)
+      if (is.character(tablets_data$powerbank)) {
+        tablets_data$powerbank <- tolower(tablets_data$powerbank)
           tablets_data$powerbank <- ifelse(tablets_data$powerbank %in% c('vrai', 'true', 'oui', 'yes', '1'), TRUE, FALSE)
         } else if (is.numeric(tablets_data$powerbank)) {
           tablets_data$powerbank <- as.logical(tablets_data$powerbank)
@@ -1508,66 +1503,169 @@ server <- function(input, output, session) {
   })
   
   # Output pour l'historique des fiches
-  output$fiches_history_table <- renderDT({
-    current_fiches <- generated_fiches()
-
-    if (nrow(current_fiches) == 0) {
-      datatable(
-        data.frame(Message = "Aucune fiche générée"),
-        options = list(pageLength = 10, dom = 't'),
-        rownames = FALSE
-      )
-    } else {
-      # Créer un data.frame pour l'affichage
-      history_data <- data.frame(
-        Agent = current_fiches$agent_name,
-        Tablette = current_fiches$tablette,
-        Fichier = current_fiches$filename,
-        Date = format(as.POSIXct(current_fiches$timestamp), "%d/%m/%Y %H:%M"),
-        stringsAsFactors = FALSE
-      )
+  output$fiches_history_table <- DT::renderDataTable({
+    fiches <- generated_fiches()
+    if (user_role() == "supervisor") {
+      fiches <- fiches[fiches$user_login == current_user(), ]
+    }
+    if (nrow(fiches) == 0) {
+      return(data.frame(Message = "Aucune fiche générée"))
+    }
+    fiches$transferred <- ifelse(is.na(fiches$transferred), 0, fiches$transferred)
+    fiches$Action <- ifelse(fiches$transferred == 1,
+      "Déjà transférée",
+      sprintf('<button class="btn btn-sm btn-primary" onclick="Shiny.setInputValue(\'transfer_fiche\', \'%s\', {priority: \"event\"})">Transférer à la centrale</button>', fiches$filename)
+    )
+    fiches$transferred <- ifelse(fiches$transferred == 1, "Oui", "Non")
+    DT::datatable(
+      fiches[, c("filename", "agent_name", "tablette", "timestamp", "transferred", "Action")],
+      escape = FALSE,
+      rownames = FALSE,
+      options = list(pageLength = 10, language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json'))
+    )
+  })
+  
+  # Génération de fiche individuelle avec prévisualisation
+  observeEvent(input$generate_fiche_btn, {
+    req(input$fiche_assign_select)
+    
+    current_assignments <- filter_by_user(assignments())
+    selected_index <- which(paste(current_assignments$agent_name, "-", current_assignments$tablette) == input$fiche_assign_select)
+    
+    if (length(selected_index) > 0) {
+      assign_data <- current_assignments[selected_index, ]
       
-      datatable(
-        history_data,
-        options = list(
-          pageLength = 10,
-          language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json')
-        ),
-        rownames = FALSE,
-        selection = 'single',
-        callback = JS("
-          table.on('click', 'tr', function() {
-            var data = table.row(this).data();
-            Shiny.setInputValue('selected_fiche_row', table.row(this).index());
-          });
-        ")
-      )
+      tryCatch({
+        result <- generate_affectation_fiche(assign_data)
+        
+        # Ajouter à l'historique des fiches
+        current_fiches <- generated_fiches()
+        new_fiche <- data.frame(
+          filename = result$filename,
+          agent_name = assign_data$agent_name,
+          tablette = assign_data$tablette,
+          timestamp = as.character(Sys.time()),
+          user_login = current_user(),
+          stringsAsFactors = FALSE
+        )
+        updated_fiches <- rbind(current_fiches, new_fiche)
+        generated_fiches(updated_fiches)
+        save_generated_fiches(updated_fiches)
+        
+        # Afficher la prévisualisation
+        showModal(modalDialog(
+          title = paste("Fiche générée :", result$filename),
+          size = "l",
+          fluidRow(
+            column(12,
+              h5("Informations de l'agent :"),
+              tags$ul(
+                tags$li(paste("Nom :", assign_data$agent_name)),
+                tags$li(paste("ID :", assign_data$agent_id)),
+                tags$li(paste("Groupe :", assign_data$agent_group)),
+                tags$li(paste("Fonction :", assign_data$agent_function)),
+                tags$li(paste("Téléphone :", assign_data$agent_phone))
+              ),
+              h5("Informations de la tablette :"),
+              tags$ul(
+                tags$li(paste("Tablette :", assign_data$tablette)),
+                tags$li(paste("Chargeur :", assign_data$chargeur)),
+                tags$li(paste("Powerbank :", ifelse(assign_data$powerbank, "Oui", "Non")))
+              ),
+              h5("Informations du superviseur :"),
+              tags$ul(
+                tags$li(paste("Nom :", assign_data$supervisor_name)),
+                tags$li(paste("Numéro :", assign_data$supervisor_num)),
+                tags$li(paste("Date d'affectation :", assign_data$assign_date))
+              )
+            )
+          ),
+          footer = tagList(
+            downloadButton("download_fiche", "Télécharger la fiche", class = "btn-success"),
+            modalButton("Fermer")
+          )
+        ))
+        
+        # Stocker l'index de la fiche pour le téléchargement
+        selected_fiche_index(nrow(updated_fiches))
+        
+        showNotification(paste("Fiche générée:", result$filename), type = "default")
+      }, error = function(e) {
+        showNotification("Erreur lors de la génération de la fiche", type = "error")
+      })
     }
   })
   
-  # Gestion de la sélection dans l'historique
-  observeEvent(input$selected_fiche_row, {
-    req(input$selected_fiche_row)
-    current_fiches <- generated_fiches()
-    row_index <- input$selected_fiche_row + 1  # +1 car l'index commence à 0
-
-    if (row_index <= nrow(current_fiches)) {
-      fiche <- current_fiches[row_index, ]
-      selected_fiche_index(row_index)
-
-      # Afficher la prévisualisation basique
-      showModal(modalDialog(
-        title = paste("Fiche :", fiche$filename),
-        size = "m",
-        tags$p(paste("Agent :", fiche$agent_name)),
-        tags$p(paste("Tablette :", fiche$tablette)),
-        tags$p(paste("Générée le :", format(as.POSIXct(fiche$timestamp), "%d/%m/%Y %H:%M"))),
-        footer = tagList(
-          downloadButton("download_fiche", "Télécharger la fiche", class = "btn-success"),
-          modalButton("Fermer")
-        )
-      ))
+  # Téléchargement de fiche
+  output$download_fiche <- downloadHandler(
+    filename = function() {
+      req(selected_fiche_index())
+      current_fiches <- generated_fiches()
+      if (selected_fiche_index() <= nrow(current_fiches)) {
+        current_fiches$filename[selected_fiche_index()]
+      } else {
+        "fiche.docx"
+      }
+    },
+    content = function(file) {
+      req(selected_fiche_index())
+      current_fiches <- generated_fiches()
+      if (selected_fiche_index() <= nrow(current_fiches)) {
+        fiche <- current_fiches$filename[selected_fiche_index()]
+        file.copy(fiche, file)
+      }
     }
+  )
+  
+  # Génération de toutes les fiches avec historique
+  observeEvent(input$generate_all_fiches_btn, {
+    current_assignments <- filter_by_user(assignments())
+    
+    if (nrow(current_assignments) == 0) {
+      showNotification("Aucune affectation à traiter", type = "warning")
+      return()
+    }
+    
+    tryCatch({
+      current_fiches <- generated_fiches()
+
+      new_rows <- data.frame(
+        filename = character(),
+        agent_name = character(),
+        tablette = character(),
+        timestamp = character(),
+        user_login = character(),
+        stringsAsFactors = FALSE
+      )
+
+      for (i in 1:nrow(current_assignments)) {
+        assign_data <- current_assignments[i, ]
+        result <- generate_affectation_fiche(assign_data)
+
+        new_rows <- rbind(new_rows, data.frame(
+          filename = result$filename,
+          agent_name = assign_data$agent_name,
+          tablette = assign_data$tablette,
+          timestamp = as.character(Sys.time()),
+          user_login = current_user(),
+          stringsAsFactors = FALSE
+        ))
+      }
+
+      updated_fiches <- rbind(current_fiches, new_rows)
+      generated_fiches(updated_fiches)
+      save_generated_fiches(updated_fiches)
+      showNotification(paste(nrow(current_assignments), "fiches générées avec succès!"), type = "default")
+    }, error = function(e) {
+      showNotification("Erreur lors de la génération des fiches", type = "error")
+    })
+  })
+  
+  # Réinitialisation de la sélection des fiches
+  observeEvent(input$reset_selection_btn, {
+    updateSelectInput(session, "fiche_assign_select", selected = "")
+    selected_fiche_index(NULL)
+    showNotification("Sélection réinitialisée", type = "default")
   })
   
   # Observateur pour mettre à jour les choix de tablettes affectées et le powerbank
@@ -1703,13 +1801,22 @@ server <- function(input, output, session) {
       save_registered_tablets(current_tablets)
     }
     
-    # Supprimer l'affectation
+    # Supprimer l'affectation (l'administrateur peut supprimer toutes les affectations, les superviseurs seulement les leurs)
+    if (user_role() == "admin") {
+      current_assignments <- assignments()
+    } else {
     current_assignments <- filter_by_user(assignments())
+    }
     assignment_idx <- which(current_assignments$tablette == assignment$tablette)
     if (length(assignment_idx) > 0) {
-      updated_assignments <- current_assignments[-assignment_idx, ]
+      # Supprimer de la liste complète des affectations
+      all_assignments <- assignments()
+      all_assignment_idx <- which(all_assignments$tablette == assignment$tablette)
+      if (length(all_assignment_idx) > 0) {
+        updated_assignments <- all_assignments[-all_assignment_idx, ]
       assignments(updated_assignments)
-      save_assignments(updated_assignments)
+        save_assignments(updated_assignments)
+      }
     }
     
     # Réinitialiser les champs
@@ -1873,9 +1980,14 @@ server <- function(input, output, session) {
       save_registered_tablets(current_tablets)
     }
 
-    updated_assignments <- current_assignments[-tablet_idx, ]
+    # Supprimer l'affectation (l'administrateur peut supprimer toutes les affectations, les superviseurs seulement les leurs)
+    all_assignments <- assignments()
+    all_tablet_idx <- which(all_assignments$tablette == tablet_num)
+    if (length(all_tablet_idx) > 0) {
+      updated_assignments <- all_assignments[-all_tablet_idx, ]
     assignments(updated_assignments)
-    save_assignments(updated_assignments)
+      save_assignments(updated_assignments)
+    }
 
     updateTextInput(session, "incident_agent_id", value = "")
     updateSelectInput(session, "incident_tablet_select", selected = "")
@@ -1891,9 +2003,20 @@ server <- function(input, output, session) {
   
   # Observateur pour mettre à jour le statut des tablettes (tableau de suivi)
   observe({
+    # Vérifier que l'utilisateur est connecté avant de traiter les données
+    req(user_role(), current_user())
+    
+    # L'administrateur voit toutes les données, les superviseurs voient seulement les leurs
+    if (user_role() == "admin") {
+      reg_data <- registered_tablets()
+      assign_data <- assignments()
+      returns_data <- tablet_returns()
+    } else {
     reg_data <- filter_by_user(registered_tablets())
     assign_data <- filter_by_user(assignments())
     returns_data <- filter_by_user(tablet_returns())
+    }
+    
     if (nrow(reg_data) > 0) {
       suivi <- reg_data
       suivi$status <- reg_data$etat
@@ -1930,15 +2053,12 @@ server <- function(input, output, session) {
   # Import des superviseurs
   observeEvent(input$import_supervisors_btn, {
     req(input$supervisors_file)
-    
     tryCatch({
       # Lire le fichier Excel
       data <- read_excel(input$supervisors_file$datapath)
-      
       # Vérifier que les colonnes requises existent
       required_columns <- c("user_name", "user_login", "user_password")
       missing_columns <- setdiff(required_columns, colnames(data))
-      
       if (length(missing_columns) > 0) {
         showNotification(
           paste("Erreur : Colonnes manquantes :", paste(missing_columns, collapse = ", ")), 
@@ -1946,18 +2066,15 @@ server <- function(input, output, session) {
         )
         return()
       }
-      
       # Vérifier que les données ne sont pas vides
       if (nrow(data) == 0) {
         showNotification("Le fichier ne contient aucune donnée", type = "error")
         return()
       }
-      
       # Vérifier que les champs obligatoires ne sont pas vides
       empty_fields <- data$user_name == "" | is.na(data$user_name) |
                      data$user_login == "" | is.na(data$user_login) |
                      data$user_password == "" | is.na(data$user_password)
-      
       if (any(empty_fields)) {
         showNotification(
           paste("Erreur : Champs vides détectés aux lignes :", 
@@ -1966,7 +2083,6 @@ server <- function(input, output, session) {
         )
         return()
       }
-      
       # Convertir en data.frame avec les bonnes colonnes
       new_supervisors <- data.frame(
         user_name = as.character(data$user_name),
@@ -1974,15 +2090,12 @@ server <- function(input, output, session) {
         user_password = as.character(data$user_password),
         stringsAsFactors = FALSE
       )
-      
       # Récupérer la base actuelle
       current_supervisors <- supervisors()
-      
       # Gérer les doublons (remplacer les anciens enregistrements)
       if (nrow(current_supervisors) > 0) {
         # Trouver les doublons
         duplicates <- new_supervisors$user_login %in% current_supervisors$user_login
-        
         if (any(duplicates)) {
           # Supprimer les anciens enregistrements
           current_supervisors <- current_supervisors[!current_supervisors$user_login %in% new_supervisors$user_login, ]
@@ -1992,25 +2105,18 @@ server <- function(input, output, session) {
           )
         }
       }
-      
       # Ajouter les nouveaux superviseurs
       updated_supervisors <- rbind(current_supervisors, new_supervisors)
       supervisors(updated_supervisors)
       save_supervisors(updated_supervisors)
-      
       # Réinitialiser le champ de fichier
       reset("supervisors_file")
-      
       showNotification(
         paste(nrow(new_supervisors), "superviseur(s) importé(s) avec succès!"), 
         type = "default"
       )
-      
     }, error = function(e) {
-      showNotification(
-        paste("Erreur lors de l'import :", e$message), 
-        type = "error"
-      )
+      showNotification(paste("Erreur lors de l'import :", e$message), type = "error")
     })
   })
   
@@ -2076,7 +2182,15 @@ server <- function(input, output, session) {
   
   # Sorties des tableaux
   output$register_table <- renderDT({
+    # Vérifier que l'utilisateur est connecté
+    req(user_role(), current_user())
+    
+    # L'administrateur voit toutes les tablettes, les superviseurs voient seulement les leurs
+    if (user_role() == "admin") {
+      data <- registered_tablets()
+    } else {
     data <- filter_by_user(registered_tablets())
+    }
     if (nrow(data) > 0) {
       data$powerbank <- ifelse(data$powerbank, "Oui", "Non")
       data$chargeur_ok <- ifelse(data$chargeur_ok, "Oui", "Non")
@@ -2093,7 +2207,15 @@ server <- function(input, output, session) {
   })
   
   output$assign_table <- renderDT({
+    # Vérifier que l'utilisateur est connecté
+    req(user_role(), current_user())
+    
+    # L'administrateur voit toutes les affectations, les superviseurs voient seulement les leurs
+    if (user_role() == "admin") {
+      data <- assignments()
+    } else {
     data <- filter_by_user(assignments())
+    }
     if (nrow(data) > 0) {
       data$powerbank <- ifelse(data$powerbank, "Oui", "Non")
     }
@@ -2109,7 +2231,15 @@ server <- function(input, output, session) {
   
   # Output pour le tableau des retours
   output$returns_table <- renderDT({
+    # Vérifier que l'utilisateur est connecté
+    req(user_role(), current_user())
+    
+    # L'administrateur voit tous les retours, les superviseurs voient seulement les leurs
+    if (user_role() == "admin") {
+      returns_data <- tablet_returns()
+    } else {
     returns_data <- filter_by_user(tablet_returns())
+    }
     if (nrow(returns_data) == 0) {
       datatable(
         data.frame(Message = "Aucun retour enregistré"),
@@ -2136,7 +2266,15 @@ server <- function(input, output, session) {
   })
 
   output$incidents_table <- renderDT({
+    # Vérifier que l'utilisateur est connecté
+    req(user_role(), current_user())
+    
+    # L'administrateur voit tous les incidents, les superviseurs voient seulement les leurs
+    if (user_role() == "admin") {
+      incidents_data <- tablet_incidents()
+    } else {
     incidents_data <- filter_by_user(tablet_incidents())
+    }
     if (nrow(incidents_data) == 0) {
       datatable(
         data.frame(Message = "Aucun incident déclaré"),
@@ -2159,31 +2297,66 @@ server <- function(input, output, session) {
   # Outputs pour les compteurs du tableau de bord
   
   output$available_tablets_count <- renderText({
+    # Vérifier que l'utilisateur est connecté
+    req(user_role(), current_user())
+    
+    # L'administrateur voit toutes les tablettes, les superviseurs voient seulement les leurs
+    if (user_role() == "admin") {
+      registered_data <- registered_tablets()
+    } else {
     registered_data <- filter_by_user(registered_tablets())
+    }
     if (nrow(registered_data) == 0) return("0")
     sum(registered_data$etat == "En stock", na.rm = TRUE)
   })
   
   output$assigned_tablets_count <- renderText({
+    # Vérifier que l'utilisateur est connecté
+    req(user_role(), current_user())
+    
+    # L'administrateur voit toutes les tablettes, les superviseurs voient seulement les leurs
+    if (user_role() == "admin") {
+      registered_data <- registered_tablets()
+    } else {
     registered_data <- filter_by_user(registered_tablets())
+    }
     if (nrow(registered_data) == 0) return("0")
     sum(registered_data$etat == "Affectée", na.rm = TRUE)
   })
   
   output$returned_tablets_count <- renderText({
+    # Vérifier que l'utilisateur est connecté
+    req(user_role(), current_user())
+    
+    # L'administrateur voit toutes les tablettes, les superviseurs voient seulement les leurs
+    if (user_role() == "admin") {
+      registered_data <- registered_tablets()
+    } else {
     registered_data <- filter_by_user(registered_tablets())
+    }
     if (nrow(registered_data) == 0) return("0")
     sum(registered_data$etat == "En réparation", na.rm = TRUE)
   })
   
   output$out_of_service_tablets_count <- renderText({
+    # Vérifier que l'utilisateur est connecté
+    req(user_role(), current_user())
+    
+    # L'administrateur voit toutes les tablettes, les superviseurs voient seulement les leurs
+    if (user_role() == "admin") {
+      registered_data <- registered_tablets()
+    } else {
     registered_data <- filter_by_user(registered_tablets())
+    }
     if (nrow(registered_data) == 0) return("0")
     sum(registered_data$etat == "Hors service", na.rm = TRUE)
   })
   
   # Output pour le tableau de suivi des tablettes
   output$tracking_table <- renderDT({
+    # Vérifier que l'utilisateur est connecté
+    req(user_role(), current_user())
+    
     status_data <- tablet_status()
     if (nrow(status_data) == 0) {
       datatable(
@@ -2234,7 +2407,347 @@ server <- function(input, output, session) {
       )
     }
   })
+
+  # Fonction utilitaire pour vider toutes les tables
+  reset_all_tables <- function() {
+    db <- get_db_connection()
+    on.exit(dbDisconnect(db))
+    dbExecute(db, "DELETE FROM supervisors")
+    dbExecute(db, "DELETE FROM registered_tablets")
+    dbExecute(db, "DELETE FROM assignments")
+    dbExecute(db, "DELETE FROM tablet_returns")
+    dbExecute(db, "DELETE FROM tablet_incidents")
+    dbExecute(db, "DELETE FROM generated_fiches")
+  }
+
+  # Réinitialisation totale de l'application (admin)
+  observeEvent(input$reset_all_btn, {
+    showModal(modalDialog(
+      title = "Confirmation de la réinitialisation",
+      HTML("<b style='color:red;'>Attention&nbsp;: cette action va effacer <u>toutes</u> les données de l'application (tablettes, affectations, retours, incidents, superviseurs, fiches, etc.).<br>Cette action est <u>irréversible</u>!</b><br><br>Pour confirmer, tapez <code>CONFIRMER</code> ci-dessous."),
+      textInput("reset_all_confirm", "Tapez CONFIRMER pour valider", value = ""),
+      footer = tagList(
+        modalButton("Annuler"),
+        actionButton("do_reset_all", "Tout réinitialiser", class = "btn-danger")
+      ),
+      size = "m"
+    ))
+  })
+
+  observeEvent(input$do_reset_all, {
+    if (!is.null(input$reset_all_confirm) && toupper(trimws(input$reset_all_confirm)) == "CONFIRMER") {
+      # Vider toutes les tables
+      reset_all_tables()
+      # Réinitialiser toutes les données réactives
+      supervisors(data.frame(user_name = character(), user_login = character(), user_password = character(), stringsAsFactors = FALSE))
+      registered_tablets(data.frame(tablette = character(), chargeur = character(), powerbank = logical(), chargeur_ok = logical(), powerbank_ok = logical(), registration_date = character(), etat = character(), user_login = character(), stringsAsFactors = FALSE))
+      assignments(data.frame(tablette = character(), chargeur = character(), powerbank = logical(), agent_id = character(), agent_name = character(), agent_group = character(), agent_function = character(), agent_phone = character(), agent_class = character(), supervisor_name = character(), supervisor_num = character(), assign_date = character(), user_login = character(), stringsAsFactors = FALSE))
+      tablet_returns(data.frame(tablette = character(), agent_id = character(), agent_name = character(), charger_retourne = character(), powerbank_retourne = logical(), return_reason = character(), return_condition = character(), return_date = character(), return_notes = character(), user_login = character(), stringsAsFactors = FALSE))
+      tablet_incidents(data.frame(tablette = character(), agent_id = character(), agent_name = character(), charger_usable = logical(), powerbank_usable = logical(), incident_type = character(), incident_state = character(), incident_date = character(), notes = character(), user_login = character(), stringsAsFactors = FALSE))
+      generated_fiches(data.frame(filename = character(), agent_name = character(), tablette = character(), timestamp = character(), user_login = character(), stringsAsFactors = FALSE))
+      selected_fiche_index(NULL)
+      # Forcer la déconnexion
+      user_role(NULL)
+      current_user(NULL)
+      removeUI(selector = "#logout_button", immediate = TRUE)
+      removeModal()
+      showNotification("Toutes les données ont été effacées. Veuillez vous reconnecter.", type = "warning")
+      showModal(modalDialog(
+        title = "Connexion",
+        textInput("login_user", "Login"),
+        passwordInput("login_pass", "Mot de passe"),
+        footer = tagList(
+          actionButton("login_btn", "Se connecter")
+        ),
+        easyClose = FALSE
+      ))
+    } else {
+      showNotification("Vous devez taper CONFIRMER pour valider la réinitialisation.", type = "error")
+    }
+  })
+
+  # Output pour savoir si l'utilisateur est admin (pour conditionalPanel)
+  output$isAdmin <- reactive({ user_role() == "admin" })
+  outputOptions(output, "isAdmin", suspendWhenHidden = FALSE)
+
+  # Statistiques globales pour l'onglet Suivi des superviseurs
+  output$nb_superviseurs <- renderUI({
+    sup <- supervisors()
+    value <- if (!is.null(sup) && nrow(sup) > 0) nrow(sup) else 0
+    div(style = "background: linear-gradient(135deg, #764ba2 0%, #667eea 100%); color: white; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.08);",
+        h3(value, style = "margin:0; font-size:2.5rem;"),
+        p("Superviseurs actifs", style = "margin:0; font-size:1.1rem;")
+    )
+  })
+  output$nb_fiches_total <- renderUI({
+    fiches <- assignments()
+    value <- if (!is.null(fiches) && nrow(fiches) > 0) nrow(fiches) else 0
+    div(style = "background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.08);",
+        h3(value, style = "margin:0; font-size:2.5rem;"),
+        p("Fiches générées", style = "margin:0; font-size:1.1rem;")
+    )
+  })
+  output$nb_fiches_transferees <- renderUI({
+    fiches <- assignments()
+    value <- if (!is.null(fiches) && nrow(fiches) > 0 && "transferred" %in% colnames(fiches)) sum(fiches$transferred == TRUE, na.rm = TRUE) else 0
+    div(style = "background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.08);",
+        h3(value, style = "margin:0; font-size:2.5rem;"),
+        p("Fiches transférées", style = "margin:0; font-size:1.1rem;")
+    )
+  })
+  output$nb_fiches_en_attente <- renderUI({
+    fiches <- assignments()
+    value <- if (!is.null(fiches) && nrow(fiches) > 0 && "transferred" %in% colnames(fiches)) sum(is.na(fiches$transferred) | fiches$transferred == FALSE, na.rm = TRUE) else 0
+    div(style = "background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); color: white; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.08);",
+        h3(value, style = "margin:0; font-size:2.5rem;"),
+        p("Fiches en attente", style = "margin:0; font-size:1.1rem;")
+    )
+  })
+
+  # Statistiques par superviseur (tableau)
+  output$stats_par_superviseur <- DT::renderDataTable({
+    fiches <- assignments()
+    reg <- registered_tablets()
+    retours <- tablet_returns()
+    incidents <- tablet_incidents()
+    if (!is.null(fiches) && nrow(fiches) > 0) {
+      if (!"transferred" %in% colnames(fiches)) fiches$transferred <- NA
+      # Statistiques fiches
+      stats_fiches <- aggregate(
+        cbind(`Fiches générées` = rep(1, nrow(fiches)),
+              `Fiches transférées` = fiches$transferred == TRUE),
+        by = list(Superviseur = fiches$supervisor_name),
+        FUN = sum, na.rm = TRUE
+      )
+      # Dernière fiche
+      last_dates <- aggregate(fiches$assign_date, by = list(Superviseur = fiches$supervisor_name), FUN = function(x) max(as.character(x), na.rm = TRUE))
+      stats_fiches$`Dernière fiche` <- last_dates$x
+      # Tablettes enregistrées par superviseur
+      reg_stats <- aggregate(reg$tablette, by = list(Superviseur = reg$user_login), FUN = length)
+      colnames(reg_stats)[2] <- "Tablettes enregistrées"
+      # Tablettes affectées par superviseur
+      aff_stats <- aggregate(fiches$tablette, by = list(Superviseur = fiches$supervisor_name), FUN = length)
+      colnames(aff_stats)[2] <- "Tablettes affectées"
+      # Tablettes retournées par superviseur
+      ret_stats <- aggregate(retours$tablette, by = list(Superviseur = retours$user_login), FUN = length)
+      colnames(ret_stats)[2] <- "Tablettes retournées"
+      # Tablettes en incident par superviseur
+      inc_stats <- aggregate(incidents$tablette, by = list(Superviseur = incidents$user_login), FUN = length)
+      colnames(inc_stats)[2] <- "Tablettes en incident"
+      # Fusionner toutes les stats
+      stats <- merge(stats_fiches, reg_stats, by = "Superviseur", all = TRUE)
+      stats <- merge(stats, aff_stats, by = "Superviseur", all = TRUE)
+      stats <- merge(stats, ret_stats, by = "Superviseur", all = TRUE)
+      stats <- merge(stats, inc_stats, by = "Superviseur", all = TRUE)
+      stats[is.na(stats)] <- 0
+      stats
+    } else {
+      data.frame(Message = "Aucune fiche d'affectation trouvée")
+    }
+  })
+
+  # Alertes dynamiques pour l'onglet Suivi des superviseurs
+  output$alertes_superviseurs <- renderUI({
+    fiches <- assignments()
+    sup <- supervisors()
+    alertes <- c()
+    if (is.null(sup) || nrow(sup) == 0) {
+      alertes <- c(alertes, "Aucun superviseur enregistré.")
+    } else if (is.null(fiches) || nrow(fiches) == 0) {
+      alertes <- c(alertes, "Aucune fiche d'affectation générée.")
+    } else {
+      fiches$assign_date <- as.Date(fiches$assign_date)
+      last_fiche <- aggregate(fiches$assign_date, by = list(Superviseur = fiches$supervisor_name), FUN = max, na.rm = TRUE)
+      inactifs <- last_fiche$Superviseur[as.numeric(Sys.Date() - last_fiche$x) > 7]
+      if (length(inactifs) > 0) {
+        alertes <- c(alertes, paste("Superviseur(s) inactif(s) depuis plus de 7 jours :", paste(inactifs, collapse = ", ")))
+      }
+      if (!"transferred" %in% colnames(fiches)) fiches$transferred <- NA
+      non_transf <- aggregate(fiches$transferred == FALSE | is.na(fiches$transferred), by = list(Superviseur = fiches$supervisor_name), FUN = sum, na.rm = TRUE)
+      non_transf <- non_transf[non_transf$x > 0, ]
+      if (nrow(non_transf) > 0) {
+        alertes <- c(alertes, paste0("Fiches en attente de transfert : ", paste(non_transf$Superviseur, "(", non_transf$x, ")", collapse = ", ")))
+      }
+    }
+    if (length(alertes) == 0) return(NULL)
+    HTML(sprintf('
+      <div style="background:#c82333; color:white; border-radius:8px; padding:10px 0; margin-bottom:20px; overflow:hidden; position:relative; height:40px;">
+        <div style="white-space:nowrap; display:inline-block; position:absolute; will-change:transform; animation:marquee 15s linear infinite;">
+          %s
+        </div>
+      </div>
+      <style>
+        @keyframes marquee {
+          0%%   { transform: translateX(100%%);}
+          100%% { transform: translateX(-100%%);}
+        }
+      </style>
+    ', paste(alertes, collapse = ' &nbsp;|&nbsp; ')))
+  })
+
+  # Graphique : barplot fiches générées et transférées par superviseur
+  output$plot_fiches_par_superviseur <- renderPlot({
+    fiches <- assignments()
+    if (!is.null(fiches) && nrow(fiches) > 0) {
+      if (!"transferred" %in% colnames(fiches)) fiches$transferred <- NA
+      library(ggplot2)
+      stats <- aggregate(
+        cbind(`Générées` = rep(1, nrow(fiches)),
+              `Transférées` = fiches$transferred == TRUE),
+        by = list(Superviseur = fiches$supervisor_name),
+        FUN = sum, na.rm = TRUE
+      )
+      df <- reshape2::melt(stats, id.vars = "Superviseur")
+      ggplot(df, aes(x = Superviseur, y = value, fill = variable)) +
+        geom_bar(stat = "identity", position = "dodge") +
+        scale_fill_manual(values = c("#007bff", "#28a745")) +
+        labs(x = "Superviseur", y = "Nombre de fiches", fill = "Type") +
+        theme_minimal(base_family = "Segoe UI") +
+        theme(axis.text.x = element_text(angle = 30, hjust = 1, color = "white"),
+              axis.text.y = element_text(color = "white"),
+              axis.title = element_text(color = "white"),
+              legend.title = element_text(color = "white"),
+              legend.text = element_text(color = "white"),
+              plot.background = element_rect(fill = NA, color = NA),
+              panel.background = element_rect(fill = NA, color = NA))
+    }
+  })
+
+  # Graphique : évolution des fiches générées/transférées par semaine
+  output$plot_evolution_fiches <- renderPlot({
+    fiches <- assignments()
+    if (!is.null(fiches) && nrow(fiches) > 0) {
+      if (!"transferred" %in% colnames(fiches)) fiches$transferred <- NA
+      library(ggplot2)
+      fiches$assign_date <- as.Date(fiches$assign_date)
+      fiches$week <- format(fiches$assign_date, "%Y-%U")
+      stats <- aggregate(
+        cbind(`Générées` = rep(1, nrow(fiches)),
+              `Transférées` = fiches$transferred == TRUE),
+        by = list(Semaine = fiches$week),
+        FUN = sum, na.rm = TRUE
+      )
+      df <- reshape2::melt(stats, id.vars = "Semaine")
+      ggplot(df, aes(x = Semaine, y = value, color = variable, group = variable)) +
+        geom_line(size = 1.2) +
+        geom_point(size = 2) +
+        scale_color_manual(values = c("#007bff", "#28a745")) +
+        labs(x = "Semaine", y = "Nombre de fiches", color = "Type") +
+        theme_minimal(base_family = "Segoe UI") +
+        theme(axis.text.x = element_text(angle = 30, hjust = 1, color = "white"),
+              axis.text.y = element_text(color = "white"),
+              axis.title = element_text(color = "white"),
+              legend.title = element_text(color = "white"),
+              legend.text = element_text(color = "white"),
+              plot.background = element_rect(fill = NA, color = NA),
+              panel.background = element_rect(fill = NA, color = NA))
+    }
+  })
+
+  # Observer le clic sur le bouton de transfert
+  observeEvent(input$transfer_fiche, {
+    req(input$transfer_fiche)
+    fiches <- generated_fiches()
+    idx <- which(fiches$filename == input$transfer_fiche & fiches$user_login == current_user())
+    if (length(idx) == 1 && (is.na(fiches$transferred[idx]) || fiches$transferred[idx] == 0)) {
+      fiches$transferred[idx] <- 1
+      generated_fiches(fiches)
+      save_generated_fiches(fiches)
+      showNotification("Fiche transférée à la centrale !", type = "message")
+    }
+  })
+
+  # Côté admin, afficher les fiches transférées dans le tableau dédié
+  output$fiches_transferees_admin <- DT::renderDataTable({
+    fiches <- generated_fiches()
+    fiches <- fiches[!is.na(fiches$transferred) & fiches$transferred == 1, ]
+    if (nrow(fiches) == 0) {
+      return(data.frame(Message = "Aucune fiche transférée à la centrale"))
+    }
+    fiches$Telecharger <- sprintf(
+      '<button class="btn btn-success btn-sm" onclick="Shiny.setInputValue(\'admin_download_fiche\', \'%s\', {priority: \"event\"})">Télécharger</button>',
+      fiches$filename
+    )
+    DT::datatable(
+      fiches[, c("filename", "agent_name", "tablette", "timestamp", "user_login", "Telecharger")],
+      escape = FALSE,
+      rownames = FALSE,
+      options = list(pageLength = 10, language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json'))
+    )
+  })
+
+  observeEvent(input$admin_download_fiche, {
+    req(input$admin_download_fiche)
+    selected_file <- input$admin_download_fiche
+    output$admin_fiche_download <- downloadHandler(
+      filename = function() {
+        # Par défaut, on propose le .docx
+        selected_file
+      },
+      content = function(file) {
+        file.copy(selected_file, file)
+      }
+    )
+    showModal(modalDialog(
+      title = "Téléchargement de la fiche",
+      downloadButton("admin_fiche_download", "Télécharger la fiche (.docx)", class = "btn-success"),
+      footer = modalButton("Fermer")
+    ))
+  })
+
+  # === MODE DIAGNOSTIC GOOGLE SHEETS (ADMIN) ===
+  debug_gsheets <- function() {
+    cat("\n[TEST] Authentification compte de service...\n")
+    tryCatch({
+      gs4_auth(path = "tablette-manager-75e3b8ac3aa9.json")
+      cat("[OK] Authentification réussie.\n")
+    }, error = function(e) cat("[ERREUR] Authentification : ", e$message, "\n"))
+
+    cat("[TEST] Lecture d'un onglet existant ('supervisors')...\n")
+    res1 <- tryCatch({
+      d <- googlesheets4::read_sheet(gsheet_id, sheet = "supervisors"); cat("[OK] Lecture réussie (supervisors).\n"); d
+    }, error = function(e) {cat("[ERREUR] Lecture supervisors : ", e$message, "\n"); NULL})
+
+    cat("[TEST] Lecture d'un onglet inexistant ('test_inexistant')...\n")
+    res2 <- tryCatch({
+      d <- googlesheets4::read_sheet(gsheet_id, sheet = "test_inexistant"); cat("[OK] Lecture réussie (test_inexistant).\n"); d
+    }, error = function(e) {cat("[ERREUR] Lecture test_inexistant : ", e$message, "\n"); NULL})
+
+    cat("[TEST] Ecriture dans un nouvel onglet ('test_debug')...\n")
+    test_data <- data.frame(a = 1:3, b = c("x", "y", "z"))
+    res3 <- tryCatch({
+      googlesheets4::sheet_write(test_data, gsheet_id, sheet = "test_debug"); cat("[OK] Ecriture test_debug réussie.\n"); TRUE
+    }, error = function(e) {cat("[ERREUR] Ecriture test_debug : ", e$message, "\n"); FALSE})
+
+    cat("[TEST] Droits du compte de service...\n")
+    # On tente d'écrire dans un onglet protégé (si existant)
+    res4 <- tryCatch({
+      googlesheets4::sheet_write(test_data, gsheet_id, sheet = "onglet_protege"); cat("[OK] Ecriture onglet_protege réussie.\n"); TRUE
+    }, error = function(e) {cat("[ERREUR] Droits/écriture onglet_protege : ", e$message, "\n"); FALSE})
+
+    list(auth = !is.null(gs4_token()),
+         read_supervisors = !is.null(res1),
+         read_inexistant = !is.null(res2),
+         write_debug = res3,
+         write_protected = res4)
+  }
+
+  # Ajout d'un bouton admin pour lancer le diagnostic
+  debug_results <- reactiveVal(NULL)
+
+  observeEvent(input$debug_gsheets, {
+    debug_results(debug_gsheets())
+  })
+
+  
+
+  output$debug_gsheets_out <- renderPrint({
+    req(debug_results())
+    debug_results()
+  })
+
 }
 
 # Lancement de l'application
 shinyApp(ui = ui, server = server)
+

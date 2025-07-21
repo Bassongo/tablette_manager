@@ -1,0 +1,23 @@
+# Fichiers de test
+*_test.xlsx
+agents (1).xlsx
+tablettes (1).xlsx
+Superviseur.xlsx
+
+# Documentation
+README.md
+*.md
+
+# Fichiers système
+.Rhistory
+nul
+.git/
+.gitignore
+
+# Fichiers temporaires
+*.tmp
+*.log
+*.bak
+
+# Fichiers de données générés
+Fiche_*.docx 

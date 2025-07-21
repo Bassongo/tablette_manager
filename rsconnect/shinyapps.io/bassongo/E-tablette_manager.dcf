@@ -1,0 +1,10 @@
+name: E-tablette_manager
+title: Gestion des Tablettes
+username: bassongo
+account: bassongo
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15061723
+bundleId: 10603179
+url: https://bassongo.shinyapps.io/E-tablette_manager/
+version: 1

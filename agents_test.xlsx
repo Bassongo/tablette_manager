@@ -1,0 +1,6 @@
+id_agent,agent,groupe,fonction,telephone,classe,superviseur,numero_superviseur
+AG001,Alice Dubois,Groupe A,Enquêteur,0123456789,Classe 1,Jean Dupont,0987654321
+AG002,Bob Leroy,Groupe B,Enquêteur,0123456790,Classe 2,Marie Martin,0987654322
+AG003,Claire Moreau,Groupe A,Superviseur,0123456791,Classe 1,Pierre Durand,0987654323
+AG004,David Petit,Groupe B,Enquêteur,0123456792,Classe 2,Jean Dupont,0987654321
+AG005,Eva Roux,Groupe A,Enquêteur,0123456793,Classe 1,Marie Martin,0987654322 
