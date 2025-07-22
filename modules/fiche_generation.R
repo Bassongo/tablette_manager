@@ -65,7 +65,7 @@ generate_affectation_fiche <- function(assign_data, template = "Fiche_Affectatio
     if (!dir.exists("fiches_generees")) dir.create("fiches_generees")
     filepath <- file.path("fiches_generees", filename)
     
-    officer::print(doc, target = filepath)
+    print(doc, target = filepath)
     return(list(filename = filename, filepath = filepath, data = assign_data))
     
   }, error = function(e) {
