@@ -23,12 +23,19 @@ analyze_document_variables <- function(template_path) {
 
 # Fonction principale de génération de fiche
 generate_affectation_fiche <- function(assign_data, template = "Fiche_Affectation_Materiel.docx") {
-  if (!file.exists(template)) {
+  template_paths <- c(
+    template,
+    file.path(getwd(), template),
+    file.path(dirname(getwd()), template),
+    file.path("www", template)
+  )
+  template_path <- template_paths[file.exists(template_paths)][1]
+  if (is.na(template_path)) {
     stop("Template de fiche non trouvé : ", template)
   }
   
   tryCatch({
-    doc <- read_docx(template)
+    doc <- read_docx(template_path)
     
     # Mapping sécurisé des placeholders
     replacements <- list(
