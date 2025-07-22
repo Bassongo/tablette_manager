@@ -445,7 +445,7 @@ fiche_server_logic <- function(input, output, session, assignments, generated_fi
     )
 
     download_btn <- sprintf(
-      '<a class="btn btn-sm btn-success" href="fiches/%s" download>Télécharger</a>',
+      '<a class="btn btn-sm btn-success" href="fiches_generees/%s" download>Télécharger</a>',
       fiches$filename
     )
 
