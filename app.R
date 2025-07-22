@@ -16,6 +16,9 @@ source("modules/fiche_generation.R")
 source("ui.R")
 source("server.R")
 
+# Rendre les fiches générées accessibles pour téléchargement
+shiny::addResourcePath("fiches", "fiches_generees")
+
 # Variable globale pour le rôle utilisateur (NULL au démarrage)
 global_user_role <- shiny::reactiveVal(NULL)
 
