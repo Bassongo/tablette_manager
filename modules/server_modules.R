@@ -66,7 +66,7 @@ register_server_logic <- function(input, output, session, registered_tablets, us
     req(input$tablets_register_file)
     
     tryCatch({
-      data <- read_excel(input$tablets_register_file$datapath)
+      data <- readxl::read_excel(input$tablets_register_file$datapath)
       
       # Vérifier que les colonnes requises existent
       required_columns <- c("tablette", "chargeur", "powerbank")
@@ -197,8 +197,8 @@ assignment_server_logic <- function(input, output, session, assignments, registe
   observeEvent(input$mass_assign_btn, {
     req(input$agents_file, input$tablets_file)
     tryCatch({
-      agents_data <- read_excel(input$agents_file$datapath)
-      tablets_data <- read_excel(input$tablets_file$datapath)
+      agents_data <- readxl::read_excel(input$agents_file$datapath)
+      tablets_data <- readxl::read_excel(input$tablets_file$datapath)
       
       # Vérifications et logique d'affectation en masse
       # (Code similaire à l'original mais adapté)
@@ -761,7 +761,7 @@ administration_server_logic <- function(input, output, session, supervisors, reg
   observeEvent(input$import_supervisors_btn, {
     req(input$supervisors_file)
     tryCatch({
-      data <- read_excel(input$supervisors_file$datapath)
+      data <- readxl::read_excel(input$supervisors_file$datapath)
       required_columns <- c("user_name", "user_login", "user_password")
       missing_columns <- setdiff(required_columns, colnames(data))
       if (length(missing_columns) > 0) {
@@ -998,23 +998,25 @@ administration_server_logic <- function(input, output, session, supervisors, reg
   output$alertes_superviseurs <- renderUI({
     fiches <- generated_fiches()
     sup <- supervisors()
-    if (is.null(fiches) || nrow(fiches) == 0) {
-      return(div("Aucune alerte", style = "color: white;"))
+    alert_text <- NULL
+    if (!is.null(fiches) && nrow(fiches) > 0) {
+      if (!"transferred" %in% colnames(fiches)) fiches$transferred <- FALSE
+      alerts <- aggregate(transferred ~ user_login, data = fiches,
+                          FUN = function(x) sum(is.na(x) | x == FALSE))
+      alerts <- alerts[alerts$transferred > 0, ]
+      if (nrow(alerts) > 0) {
+        alert_text <- paste(
+          sapply(seq_len(nrow(alerts)), function(i) {
+            name <- if (!is.null(sup) && nrow(sup) > 0) sup$user_name[match(alerts$user_login[i], sup$user_login)] else alerts$user_login[i]
+            sprintf("%s : %d fiche(s) en attente de transfert", name, alerts$transferred[i])
+          }),
+          collapse = " \u2013 "
+        )
+      }
     }
-    if (!"transferred" %in% colnames(fiches)) fiches$transferred <- FALSE
-
-    alerts <- aggregate(transferred ~ user_login, data = fiches,
-                        FUN = function(x) sum(is.na(x) | x == FALSE))
-    alerts <- alerts[alerts$transferred > 0, ]
-
-    if (nrow(alerts) == 0) {
-      div("Aucune alerte", style = "color: white;")
-    } else {
-      tags$div(style = "max-height:150px; overflow-y:auto; background-color:white; padding:10px; border-radius:5px;",
-               lapply(seq_len(nrow(alerts)), function(i) {
-                 name <- if (!is.null(sup) && nrow(sup) > 0) sup$user_name[match(alerts$user_login[i], sup$user_login)] else alerts$user_login[i]
-                 tags$p(sprintf("%s : %d fiche(s) en attente de transfert", name, alerts$transferred[i]), style = "margin:0;")
-               }))
+    if (is.null(alert_text) || alert_text == "") {
+      alert_text <- "Aucune alerte"
     }
+    tags$marquee(span(alert_text, style = "color:red;"))
   })
 }

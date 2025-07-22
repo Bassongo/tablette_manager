@@ -3,6 +3,8 @@
 if (!exists("load_supervisors")) source("modules/data_management.R")
 # Protection : charger la logique serveur modulaire si besoin
 if (!exists("register_server_logic")) source("modules/server_modules.R")
+# Charger la génération de fiches si nécessaire
+if (!exists("generate_affectation_fiche")) source("modules/fiche_generation.R")
 # Serveur principal avec toute la logique
 
 server <- function(input, output, session) {
