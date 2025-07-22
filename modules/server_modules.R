@@ -951,7 +951,7 @@ administration_server_logic <- function(input, output, session, supervisors, reg
   })
   
   output$nb_fiches_total <- renderUI({
-    fiches <- assignments()
+    fiches <- generated_fiches()
     value <- if (!is.null(fiches) && nrow(fiches) > 0) nrow(fiches) else 0
     div(style = "background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; border-radius: 10px; padding: 20px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.08);",
         h3(value, style = "margin:0; font-size:2.5rem;"),
@@ -981,7 +981,7 @@ administration_server_logic <- function(input, output, session, supervisors, reg
   observeEvent(input$transfer_fiche, {
     req(input$transfer_fiche)
     fiches <- generated_fiches()
-    idx <- which(fiches$filename == input$transfer_fiche & fiches$user_login == current_user())
+    idx <- which(fiches$filename == input$transfer_fiche)
     if (length(idx) == 1 && (is.na(fiches$transferred[idx]) || fiches$transferred[idx] == FALSE)) {
       fiches$transferred[idx] <- TRUE
       generated_fiches(fiches)
@@ -1032,10 +1032,10 @@ administration_server_logic <- function(input, output, session, supervisors, reg
     stats$Superviseur <- if (!is.null(sup) && nrow(sup) > 0) sup$user_name[match(stats$user_login, sup$user_login)] else stats$user_login
 
     stats_melt <- reshape2::melt(stats[, c("Superviseur", "total", "transferees", "pending")], id.vars = "Superviseur")
-    ggplot(stats_melt, aes(x = Superviseur, y = value, fill = variable)) +
-      geom_bar(stat = "identity", position = "dodge") +
-      labs(x = "Superviseur", y = "Nombre de fiches", fill = "Statut") +
-      theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    ggplot2::ggplot(stats_melt, ggplot2::aes(x = Superviseur, y = value, fill = variable)) +
+      ggplot2::geom_bar(stat = "identity", position = "dodge") +
+      ggplot2::labs(x = "Superviseur", y = "Nombre de fiches", fill = "Statut") +
+      ggplot2::theme_minimal() + ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
   })
 
   # Graphique : évolution quotidienne du nombre de fiches générées
@@ -1044,9 +1044,9 @@ administration_server_logic <- function(input, output, session, supervisors, reg
     if (is.null(fiches) || nrow(fiches) == 0) return(NULL)
     dates <- as.Date(substr(fiches$timestamp, 1, 10))
     daily <- aggregate(filename ~ dates, data = data.frame(filename = fiches$filename, dates = dates), FUN = length)
-    ggplot(daily, aes(x = dates, y = filename)) +
-      geom_line(color = "#2c7fb8") + geom_point(color = "#2c7fb8") +
-      labs(x = "Date", y = "Fiches générées") + theme_minimal()
+    ggplot2::ggplot(daily, ggplot2::aes(x = dates, y = filename)) +
+      ggplot2::geom_line(color = "#2c7fb8") + ggplot2::geom_point(color = "#2c7fb8") +
+      ggplot2::labs(x = "Date", y = "Fiches générées") + ggplot2::theme_minimal()
   })
 
   # Zone d'alerte sur les fiches non transférées par superviseur
@@ -1072,6 +1072,6 @@ administration_server_logic <- function(input, output, session, supervisors, reg
     if (is.null(alert_text) || alert_text == "") {
       alert_text <- "Aucune alerte"
     }
-    htmltools::tags$marquee(htmltools::span(alert_text, style = "color:red;"))
+    htmltools::HTML(sprintf("<marquee><span style='color:red;'>%s</span></marquee>", alert_text))
   })
 }
