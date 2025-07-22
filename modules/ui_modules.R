@@ -389,13 +389,15 @@ assignment_ui <- function() {
           card(
             card_header("Affectation en masse", class = "card-header"),
             card_body(
-              div(style = "margin-bottom: 15px;",
-                  h5("Fichiers requis", style = "color: var(--primary-color); font-weight: 600;"),
-                  fileInput("agents_file", "Liste des agents (Excel)", accept = c(".xlsx", ".xls")),
-                  fileInput("tablets_file", "Liste des tablettes (Excel)", accept = c(".xlsx", ".xls"))
-              ),
-              div(style = "margin-top: 20px;",
-                  actionBttn("mass_assign_btn", "Affecter aléatoirement", style = "fill", color = "primary", class = "blue-btn")
+              div(id = "mass_assign_form",
+                  div(style = "margin-bottom: 15px;",
+                      h5("Fichiers requis", style = "color: var(--primary-color); font-weight: 600;"),
+                      fileInput("agents_file", "Liste des agents (Excel)", accept = c(".xlsx", ".xls")),
+                      fileInput("tablets_file", "Liste des tablettes (Excel)", accept = c(".xlsx", ".xls"))
+                  ),
+                  div(style = "margin-top: 20px;",
+                      actionBttn("mass_assign_btn", "Affecter aléatoirement", style = "fill", color = "primary", class = "blue-btn")
+                  )
               )
             )
           )
