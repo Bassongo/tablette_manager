@@ -196,14 +196,69 @@ assignment_server_logic <- function(input, output, session, assignments, registe
   # Affectation en masse
   observeEvent(input$mass_assign_btn, {
     req(input$agents_file, input$tablets_file)
+
     tryCatch({
       agents_data <- readxl::read_excel(input$agents_file$datapath)
       tablets_data <- readxl::read_excel(input$tablets_file$datapath)
-      
-      # Vérifications et logique d'affectation en masse
-      # (Code similaire à l'original mais adapté)
-      
-      showNotification("Affectations en masse créées avec succès!", type = "default")
+
+      names(agents_data) <- tolower(names(agents_data))
+      names(tablets_data) <- tolower(names(tablets_data))
+
+      required_agents <- c("groupe", "agent", "fonction", "telephone", "classe", "id_agent", "superviseur", "numero_superviseur")
+      required_tablets <- c("tablette", "chargeur", "powerbank")
+
+      missing_agents <- setdiff(required_agents, names(agents_data))
+      missing_tablets <- setdiff(required_tablets, names(tablets_data))
+
+      if (length(missing_agents) > 0 || length(missing_tablets) > 0) {
+        showNotification("Colonnes manquantes dans les fichiers fournis", type = "error")
+        return()
+      }
+
+      n <- min(nrow(agents_data), nrow(tablets_data))
+      if (n == 0) {
+        showNotification("Aucune ligne à traiter", type = "warning")
+        return()
+      }
+
+      tablets_data <- tablets_data[sample(nrow(tablets_data), n), ]
+      agents_data <- agents_data[seq_len(n), ]
+
+      current_tablets <- registered_tablets()
+      idx <- match(tablets_data$tablette, current_tablets$tablette)
+      if (any(is.na(idx)) || any(current_tablets$etat[idx] != "En stock")) {
+        showNotification("Certaines tablettes ne sont pas en stock", type = "error")
+        return()
+      }
+
+      new_assignments <- data.frame(
+        tablette = tablets_data$tablette,
+        chargeur = tablets_data$chargeur,
+        powerbank = as.logical(tablets_data$powerbank),
+        agent_id = agents_data$id_agent,
+        agent_name = agents_data$agent,
+        agent_group = agents_data$groupe,
+        agent_function = agents_data$fonction,
+        agent_phone = agents_data$telephone,
+        agent_class = agents_data$classe,
+        supervisor_name = agents_data$superviseur,
+        supervisor_num = agents_data$numero_superviseur,
+        assign_date = as.character(Sys.Date()),
+        user_login = rep(current_user(), n),
+        stringsAsFactors = FALSE
+      )
+
+      updated_assignments <- rbind(assignments(), new_assignments)
+      assignments(updated_assignments)
+      save_assignments(updated_assignments)
+
+      current_tablets$etat[idx] <- "Affectée"
+      registered_tablets(current_tablets)
+      save_registered_tablets(current_tablets)
+
+      shinyjs::reset("mass_assign_form")
+
+      showNotification(paste(n, "affectations créées avec succès!"), type = "default")
     }, error = function(e) {
       showNotification(paste("Erreur lors de l'affectation en masse :", e$message), type = "error")
     })

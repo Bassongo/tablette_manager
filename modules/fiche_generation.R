@@ -9,8 +9,8 @@ analyze_document_variables <- function(template_path) {
   }
   
   tryCatch({
-    doc <- read_docx(template_path)
-    doc_text <- docx_summary(doc)$text
+    doc <- officer::read_docx(template_path)
+    doc_text <- officer::docx_summary(doc)$text
     full_text <- paste(doc_text, collapse = " ")
     placeholder_pattern <- "\\{\\{[^}]+\\}\\}"
     placeholders <- regmatches(full_text, gregexpr(placeholder_pattern, full_text))[[1]]
@@ -35,7 +35,7 @@ generate_affectation_fiche <- function(assign_data, template = "Fiche_Affectatio
   }
   
   tryCatch({
-    doc <- read_docx(template_path)
+    doc <- officer::read_docx(template_path)
     
     # Mapping sécurisé des placeholders
     replacements <- list(
@@ -53,8 +53,7 @@ generate_affectation_fiche <- function(assign_data, template = "Fiche_Affectatio
     
     # Appliquer les remplacements
     for (placeholder in names(replacements)) {
-      doc <- doc %>% 
-        body_replace_all_text(placeholder, replacements[[placeholder]], fixed = TRUE)
+      doc <- officer::body_replace_all_text(doc, placeholder, replacements[[placeholder]], fixed = TRUE)
     }
     
     # Générer le nom de fichier sécurisé
@@ -66,7 +65,7 @@ generate_affectation_fiche <- function(assign_data, template = "Fiche_Affectatio
     if (!dir.exists("fiches_generees")) dir.create("fiches_generees")
     filepath <- file.path("fiches_generees", filename)
     
-    print(doc, target = filepath)
+    officer::print(doc, target = filepath)
     return(list(filename = filename, filepath = filepath, data = assign_data))
     
   }, error = function(e) {
