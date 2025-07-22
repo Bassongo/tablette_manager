@@ -934,4 +934,87 @@ administration_server_logic <- function(input, output, session, supervisors, reg
       showNotification("Fiche transférée à la centrale !", type = "message")
     }
   })
+
+  # ==================== VISUALISATIONS & ALERTES ====================
+  # Tableau récapitulatif par superviseur
+  output$stats_par_superviseur <- DT::renderDataTable({
+    fiches <- generated_fiches()
+    sup <- supervisors()
+    if (is.null(fiches) || nrow(fiches) == 0) {
+      return(datatable(data.frame(Message = "Aucune fiche générée"), options = list(dom = 't'), rownames = FALSE))
+    }
+
+    if (!"transferred" %in% colnames(fiches)) fiches$transferred <- FALSE
+
+    stats <- aggregate(transferred ~ user_login, data = fiches,
+                       FUN = function(x) c(total = length(x),
+                                           transferees = sum(x == TRUE, na.rm = TRUE),
+                                           pending = sum(is.na(x) | x == FALSE)))
+
+    stats <- do.call(data.frame, stats)
+    colnames(stats) <- c("user_login", "total", "transferees", "pending")
+    stats$Superviseur <- if (!is.null(sup) && nrow(sup) > 0) sup$user_name[match(stats$user_login, sup$user_login)] else stats$user_login
+
+    datatable(stats[, c("Superviseur", "total", "transferees", "pending")],
+              colnames = c("Superviseur", "Fiches totales", "Fiches transférées", "Fiches en attente"),
+              options = list(pageLength = 10, language = list(url = '//cdn.datatables.net/plug-ins/1.10.24/i18n/French.json')),
+              rownames = FALSE)
+  })
+
+  # Graphique : nombre de fiches par superviseur
+  output$plot_fiches_par_superviseur <- renderPlot({
+    fiches <- generated_fiches()
+    sup <- supervisors()
+    if (is.null(fiches) || nrow(fiches) == 0) return(NULL)
+    if (!"transferred" %in% colnames(fiches)) fiches$transferred <- FALSE
+
+    stats <- aggregate(transferred ~ user_login, data = fiches,
+                       FUN = function(x) c(total = length(x),
+                                           transferees = sum(x == TRUE, na.rm = TRUE),
+                                           pending = sum(is.na(x) | x == FALSE)))
+    stats <- do.call(data.frame, stats)
+    colnames(stats) <- c("user_login", "total", "transferees", "pending")
+    stats$Superviseur <- if (!is.null(sup) && nrow(sup) > 0) sup$user_name[match(stats$user_login, sup$user_login)] else stats$user_login
+
+    stats_melt <- reshape2::melt(stats[, c("Superviseur", "total", "transferees", "pending")], id.vars = "Superviseur")
+    ggplot(stats_melt, aes(x = Superviseur, y = value, fill = variable)) +
+      geom_bar(stat = "identity", position = "dodge") +
+      labs(x = "Superviseur", y = "Nombre de fiches", fill = "Statut") +
+      theme_minimal() + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  })
+
+  # Graphique : évolution quotidienne du nombre de fiches générées
+  output$plot_evolution_fiches <- renderPlot({
+    fiches <- generated_fiches()
+    if (is.null(fiches) || nrow(fiches) == 0) return(NULL)
+    dates <- as.Date(substr(fiches$timestamp, 1, 10))
+    daily <- aggregate(filename ~ dates, data = data.frame(filename = fiches$filename, dates = dates), FUN = length)
+    ggplot(daily, aes(x = dates, y = filename)) +
+      geom_line(color = "#2c7fb8") + geom_point(color = "#2c7fb8") +
+      labs(x = "Date", y = "Fiches générées") + theme_minimal()
+  })
+
+  # Zone d'alerte sur les fiches non transférées par superviseur
+  output$alertes_superviseurs <- renderUI({
+    fiches <- generated_fiches()
+    sup <- supervisors()
+    if (is.null(fiches) || nrow(fiches) == 0) {
+      return(div("Aucune alerte", style = "color: white;"))
+    }
+    if (!"transferred" %in% colnames(fiches)) fiches$transferred <- FALSE
+
+    alerts <- aggregate(transferred ~ user_login, data = fiches,
+                        FUN = function(x) sum(is.na(x) | x == FALSE))
+    alerts <- alerts[alerts$transferred > 0, ]
+
+    if (nrow(alerts) == 0) {
+      div("Aucune alerte", style = "color: white;")
+    } else {
+      tags$div(style = "max-height:150px; overflow-y:auto; background-color:white; padding:10px; border-radius:5px;",
+               lapply(seq_len(nrow(alerts)), function(i) {
+                 name <- if (!is.null(sup) && nrow(sup) > 0) sup$user_name[match(alerts$user_login[i], sup$user_login)] else alerts$user_login[i]
+                 tags$p(sprintf("%s : %d fiche(s) en attente de transfert", name, alerts$transferred[i]), style = "margin:0;")
+               }))
+    }
+  })
 }
