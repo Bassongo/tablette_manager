@@ -65,7 +65,9 @@ generate_affectation_fiche <- function(assign_data, template = "Fiche_Affectatio
     if (!dir.exists("fiches_generees")) dir.create("fiches_generees")
     filepath <- file.path("fiches_generees", filename)
     
-    print(doc, target = filepath)
+    # Utiliser explicitement la fonction print de base pour
+    # déclencher la méthode S3 `print.rdocx` fournie par `officer`
+    base::print(doc, target = filepath)
     return(list(filename = filename, filepath = filepath, data = assign_data))
     
   }, error = function(e) {
