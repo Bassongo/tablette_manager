@@ -423,18 +423,35 @@ fiche_server_logic <- function(input, output, session, assignments, generated_fi
     if (nrow(fiches) == 0) {
       return(datatable(data.frame(Message = "Aucune fiche générée"), options = list(dom = 't'), rownames = FALSE))
     }
-    
+
     # S'assurer que la colonne transferred existe
     if (!"transferred" %in% colnames(fiches)) {
       fiches$transferred <- FALSE
     }
     fiches$transferred[is.na(fiches$transferred)] <- FALSE
-    
-    fiches$Action <- ifelse(fiches$transferred,
-                            "Déjà transférée",
-                            sprintf('<button class="btn btn-sm btn-primary" onclick="Shiny.setInputValue(\'transfer_fiche\', \'%s\', {priority: \"event\"})">Transférer à la centrale</button>', fiches$filename)
+
+    transfer_btn <- ifelse(
+      fiches$transferred,
+      "Déjà transférée",
+      sprintf(
+        '<button class="btn btn-sm btn-primary" onclick="Shiny.setInputValue(\'transfer_fiche\', \'%s\', {priority: \"event\"})">Transférer à la centrale</button>',
+        fiches$filename
+      )
     )
+
+    view_btn <- sprintf(
+      '<button class="btn btn-sm btn-info" onclick="Shiny.setInputValue(\'view_fiche\', \'%s\', {priority: \"event\"})">Visualiser</button>',
+      fiches$filename
+    )
+
+    download_btn <- sprintf(
+      '<a class="btn btn-sm btn-success" href="fiches/%s" download>Télécharger</a>',
+      fiches$filename
+    )
+
     fiches$transferred <- ifelse(fiches$transferred, "Oui", "Non")
+    fiches$Action <- paste(transfer_btn, view_btn, download_btn)
+
     DT::datatable(
       fiches[, c("filename", "agent_name", "tablette", "timestamp", "transferred", "Action")],
       escape = FALSE,
@@ -987,6 +1004,52 @@ administration_server_logic <- function(input, output, session, supervisors, reg
       generated_fiches(fiches)
       save_generated_fiches(fiches)
       showNotification("Fiche transférée à la centrale !", type = "message")
+    }
+  })
+
+  # Observer le clic sur le bouton de visualisation
+  observeEvent(input$view_fiche, {
+    req(input$view_fiche)
+    fiches <- generated_fiches()
+    idx <- which(fiches$filename == input$view_fiche)
+    if (length(idx) == 1) {
+      selected_fiche_index(idx)
+      assign_data <- assignments()
+      row <- assign_data[assign_data$agent_name == fiches$agent_name[idx] & assign_data$tablette == fiches$tablette[idx], ]
+      if (nrow(row) > 0) row <- row[1, ]
+
+      showModal(modalDialog(
+        title = paste("Fiche générée :", fiches$filename[idx]),
+        size = "l",
+        fluidRow(
+          column(12,
+                 h5("Informations de l'agent :"),
+                 tags$ul(
+                   tags$li(paste("Nom :", row$agent_name)),
+                   tags$li(paste("ID :", row$agent_id)),
+                   tags$li(paste("Groupe :", row$agent_group)),
+                   tags$li(paste("Fonction :", row$agent_function)),
+                   tags$li(paste("Téléphone :", row$agent_phone))
+                 ),
+                 h5("Informations de la tablette :"),
+                 tags$ul(
+                   tags$li(paste("Tablette :", row$tablette)),
+                   tags$li(paste("Chargeur :", row$chargeur)),
+                   tags$li(paste("Powerbank :", ifelse(row$powerbank, "Oui", "Non")))
+                 ),
+                 h5("Informations du superviseur :"),
+                 tags$ul(
+                   tags$li(paste("Nom :", row$supervisor_name)),
+                   tags$li(paste("Numéro :", row$supervisor_num)),
+                   tags$li(paste("Date d'affectation :", row$assign_date))
+                 )
+          )
+        ),
+        footer = tagList(
+          downloadButton("download_fiche", "Télécharger la fiche", class = "btn-success"),
+          modalButton("Fermer")
+        )
+      ))
     }
   })
 
