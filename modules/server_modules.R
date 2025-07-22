@@ -1017,6 +1017,6 @@ administration_server_logic <- function(input, output, session, supervisors, reg
     if (is.null(alert_text) || alert_text == "") {
       alert_text <- "Aucune alerte"
     }
-    tags$marquee(span(alert_text, style = "color:red;"))
+    htmltools::tags$marquee(htmltools::span(alert_text, style = "color:red;"))
   })
 }
